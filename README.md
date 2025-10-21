@@ -15,14 +15,15 @@ cd Backend
 📝 Create a `.env` file inside the `Backend` folder with the following values:
 
 ```
-GROQ_API_KEY=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
-MONGO_URI=mongodb+srv://shubham07kumargupta:Shubham%402006@trueshorts-cluster.vzk8awq.mongodb.net/medha_ai_backend
-GROQ_MODEL=llama-3.3-70b-versatile
-SMTP_FROM_EMAIL=shubham07kumargupta@gmail.com
-SMTP_FROM_NAME=Medha.ai
-GMAIL_APP_PASSWORD=fvkgfhptqjxorwun
-JWT_SECRET_KEY=528f046c-5529-45c1-8ce5-81be74fe9ab1
-HUGGINGFACE_HUB_TOKEN=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
+GROQ_API_KEY=example_api_key
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/database
+GROQ_MODEL=example_model
+SMTP_FROM_EMAIL=from_email@example.com
+SMTP_FROM_NAME=Company Name
+GMAIL_APP_PASSWORD=app_password
+JWT_SECRET_KEY=secret_key
+HUGGINGFACE_HUB_TOKEN=huggingface_token
+
 ```
 
 🧱 Create a virtual environment using **uv** (if uv is not installed, run `pip install uv` first):
@@ -65,7 +66,8 @@ cd Frontend
 📝 Create a `.env` file inside the `Frontend` folder with the following value:
 
 ```
-VITE_API_BASE_URL="http://localhost:8000"
+VITE_API_BASE_URL=https://example-api-backend.onrender.com
+VITE_GA_MEASUREMENT_ID=G-EXAMPLE123
 ```
 
 📦 Install dependencies:
