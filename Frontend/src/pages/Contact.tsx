@@ -24,6 +24,7 @@ import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/services/api";
 
 const Contact = () => {
   const navigate = useNavigate();
@@ -40,27 +41,17 @@ const Contact = () => {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch("http://localhost:8000/contact/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      await apiService.post("/contact/submit", formData);
+      
+      toast({
+        title: "Message Sent!",
+        description: "Thank you for reaching out. We'll get back to you soon!",
       });
-
-      if (response.ok) {
-        toast({
-          title: "Message Sent!",
-          description: "Thank you for reaching out. We'll get back to you soon!",
-        });
-        setFormData({ name: "", contact: "", message: "" });
-      } else {
-        throw new Error("Failed to send message");
-      }
-    } catch (error) {
+      setFormData({ name: "", contact: "", message: "" });
+    } catch (error: any) {
       toast({
         title: "Failed to Send",
-        description: "Please try again or contact us directly via email.",
+        description: error.message || "Please try again or contact us directly via email.",
         variant: "destructive",
       });
     } finally {
