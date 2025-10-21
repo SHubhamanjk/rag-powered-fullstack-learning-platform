@@ -6,7 +6,9 @@ from utils.db import (
     get_tutorial_support_collection,
     get_todo_collection
 )
+from utils.cache import cache_response
 
+@cache_response(ttl_seconds=60)  # Cache for 1 minute
 async def get_dashboard(email: str) -> Dict[str, Any]:
     """
     Fetch comprehensive dashboard analytics for a user

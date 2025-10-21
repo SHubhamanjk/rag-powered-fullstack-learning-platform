@@ -344,12 +344,12 @@ class MCQQuestionSchema(BaseModel):
     question_id: str
     question: str
     options: List[str]
-    correct_answer_index: int
+    correct_answer_index: Optional[int] = None  # Optional so we can hide it before quiz submission
 
 class DescriptiveQuestionSchema(BaseModel):
     question_id: str
     question: str
-    expected_answer: str
+    expected_answer: Optional[str] = None  # Optional so we can hide it before quiz submission
 
 class GenerateQuizResponse(BaseModel):
     quiz_id: str

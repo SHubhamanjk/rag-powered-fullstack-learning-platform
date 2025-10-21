@@ -23,7 +23,7 @@ import type { ChatMode, Message, Chat } from "@/types/chat";
 
 const Home = () => {
   const { toast } = useToast();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Mode state
   const [mode, setMode] = useState<ChatMode>("study");
@@ -59,12 +59,13 @@ const Home = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatList, currentChatId, isFetchingHistory, isNewChatMode]);
 
-  // Scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change or chat is loaded
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    // Scroll to bottom using smooth behavior
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   // Fetch all chats for current mode
   const fetchChats = async () => {
@@ -253,30 +254,101 @@ const Home = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <div className="flex h-[calc(100vh-4rem)] relative overflow-hidden">
+      {/* Futuristic Background Effects */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          className={`absolute top-20 left-10 w-96 h-96 rounded-full blur-3xl ${
+            mode === "study" ? "bg-blue-500/10" : "bg-pink-500/10"
+          }`}
+          animate={{
+            scale: [1, 1.2, 1],
+            x: [0, 50, 0],
+            y: [0, 30, 0]
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className={`absolute bottom-20 right-10 w-96 h-96 rounded-full blur-3xl ${
+            mode === "study" ? "bg-purple-500/10" : "bg-rose-500/10"
+          }`}
+          animate={{
+            scale: [1.2, 1, 1.2],
+            x: [0, -50, 0],
+            y: [0, -30, 0]
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        {/* Animated particles */}
+        {[...Array(8)].map((_, i) => (
+          <motion.div
+            key={i}
+            className={`absolute w-2 h-2 rounded-full ${
+              mode === "study" ? "bg-blue-500/30" : "bg-pink-500/30"
+            }`}
+            animate={{
+              y: [0, -100, 0],
+              x: [0, (Math.random() - 0.5) * 100, 0],
+              opacity: [0, 1, 0],
+            }}
+            transition={{
+              duration: 5 + Math.random() * 3,
+              repeat: Infinity,
+              delay: i * 0.5,
+              ease: "easeInOut"
+            }}
+            style={{
+              left: `${20 + i * 10}%`,
+              top: "50%",
+            }}
+          />
+        ))}
+      </div>
+
       {/* Sidebar */}
       <motion.aside
-        initial={{ x: -300 }}
-        animate={{ x: 0 }}
-        className={`w-64 border-r border-border glass hidden lg:flex flex-col ${
+        initial={{ x: -300, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className={`w-64 border-r border-border/50 backdrop-blur-xl hidden lg:flex flex-col relative z-10 ${
           mode === "study" 
-            ? "bg-gradient-to-b from-blue-500/5 to-purple-500/5" 
-            : "bg-gradient-to-b from-pink-500/5 to-rose-500/5"
+            ? "bg-gradient-to-b from-blue-500/5 via-purple-500/5 to-blue-500/5" 
+            : "bg-gradient-to-b from-pink-500/5 via-rose-500/5 to-pink-500/5"
         }`}
       >
         {/* New Chat Button */}
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-border/50">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
           <Button 
             onClick={startNewChat}
-            className={`w-full gap-2 ${
+              className={`w-full gap-2 relative overflow-hidden group shadow-lg hover:shadow-xl transition-all ${
               mode === "study"
                 ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90"
                 : "bg-gradient-to-r from-pink-500 to-rose-500 hover:opacity-90"
             }`}
           >
-            <Plus className="w-4 h-4" />
-            New Chat
+              <motion.div
+                className="absolute inset-0 bg-white/20"
+                initial={{ x: "-100%" }}
+                whileHover={{ x: "100%" }}
+                transition={{ duration: 0.5 }}
+              />
+              <Plus className="w-4 h-4 relative z-10 group-hover:rotate-90 transition-transform duration-300" />
+              <span className="relative z-10">New Chat</span>
+              <Sparkles className="w-3 h-3 relative z-10 opacity-70 group-hover:opacity-100 transition-opacity" />
           </Button>
+          </motion.div>
         </div>
 
         {/* Chat History */}
@@ -287,40 +359,66 @@ const Home = () => {
             </div>
           ) : chatList.length > 0 ? (
             <div className="space-y-2">
-              {chatList.map((chat) => (
+              {chatList.map((chat, index) => (
                 <motion.div
                   key={chat.chat_id}
-                  whileHover={{ x: 4 }}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  whileHover={{ x: 6, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => loadChatHistory(chat.chat_id)}
-                  className={`p-3 rounded-lg cursor-pointer flex items-center gap-2 group relative ${
+                  className={`p-3 rounded-xl cursor-pointer flex items-center gap-3 group relative overflow-hidden transition-all ${
                     currentChatId === chat.chat_id
                       ? mode === "study"
-                        ? "bg-blue-500/20 border border-blue-500/30"
-                        : "bg-pink-500/20 border border-pink-500/30"
-                      : "bg-card hover:bg-accent/50 border border-transparent"
+                        ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/40 shadow-lg"
+                        : "bg-gradient-to-r from-pink-500/20 to-rose-500/20 border border-pink-500/40 shadow-lg"
+                      : "bg-card/50 hover:bg-accent/60 border border-border/30 hover:border-primary/30"
                   }`}
                 >
-                  <MessageSquare className={`w-4 h-4 shrink-0 ${
-                    currentChatId === chat.chat_id 
-                      ? mode === "study" ? "text-blue-500" : "text-pink-500"
-                      : "text-muted-foreground group-hover:text-primary"
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate font-medium">{chat.title}</p>
+                  {/* Glow effect on hover */}
+                  <motion.div
+                    className={`absolute inset-0 ${
+                      mode === "study" ? "bg-blue-500/5" : "bg-pink-500/5"
+                    } opacity-0 group-hover:opacity-100 transition-opacity`}
+                  />
+                  
+                  <div className={`w-8 h-8 rounded-lg ${
+                    mode === "study" 
+                      ? "bg-gradient-to-br from-blue-500 to-purple-500" 
+                      : "bg-gradient-to-br from-pink-500 to-rose-500"
+                  } flex items-center justify-center shrink-0 relative z-10 shadow-md`}>
+                    <MessageSquare className="w-4 h-4 text-white" />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0 relative z-10">
+                    <p className="text-sm truncate font-semibold">{chat.title}</p>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{chat.message_count} {chat.message_count === 1 ? 'message' : 'messages'}</span>
+                      <span className="flex items-center gap-1">
+                        <div className={`w-1 h-1 rounded-full ${
+                          mode === "study" ? "bg-blue-500" : "bg-pink-500"
+                        }`} />
+                        {chat.message_count} {chat.message_count === 1 ? 'msg' : 'msgs'}
+                      </span>
                       <span>•</span>
                       <span>{formatTimestamp(chat.updated_at)}</span>
                     </div>
                   </div>
+                  
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileHover={{ opacity: 1, scale: 1 }}
+                    className="relative z-10"
+                  >
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="opacity-0 group-hover:opacity-100 h-6 w-6 shrink-0"
+                      className="h-7 w-7 shrink-0 hover:bg-destructive/20 hover:text-destructive"
                     onClick={(e) => handleDeleteChat(chat.chat_id, e)}
                   >
-                    <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                   </Button>
+                  </motion.div>
                 </motion.div>
               ))}
             </div>
@@ -332,63 +430,132 @@ const Home = () => {
         </ScrollArea>
 
         {/* Mode Toggle */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border/50">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
           <Button
             onClick={toggleMode}
             variant="outline"
-            className={`w-full gap-2 ${
+              className={`w-full gap-2 relative overflow-hidden group border-2 ${
               mode === "study"
-                ? "bg-gradient-to-r from-pink-500/10 to-rose-500/10 border-pink-500/30 hover:bg-pink-500/20"
-                : "bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-500/30 hover:bg-blue-500/20"
-            }`}
-          >
+                  ? "bg-gradient-to-r from-pink-500/10 to-rose-500/10 border-pink-500/30 hover:bg-pink-500/20 hover:border-pink-500/50"
+                  : "bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/50"
+              }`}
+            >
+              <motion.div
+                className={`absolute inset-0 ${
+                  mode === "study" ? "bg-pink-500/10" : "bg-blue-500/10"
+                }`}
+                initial={{ x: "-100%" }}
+                whileHover={{ x: "100%" }}
+                transition={{ duration: 0.6 }}
+              />
             {mode === "study" ? (
               <>
-                <Heart className="w-4 h-4 animate-pulse" />
-                <span className="text-sm font-medium">Switch to Friend Mode</span>
+                  <Heart className="w-4 h-4 animate-pulse relative z-10 group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-semibold relative z-10">Switch to Friend Mode</span>
               </>
             ) : (
               <>
-                <GraduationCap className="w-4 h-4" />
-                <span className="text-sm font-medium">Switch to Study Mode</span>
+                  <GraduationCap className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-semibold relative z-10">Switch to Study Mode</span>
               </>
             )}
           </Button>
+          </motion.div>
         </div>
       </motion.aside>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Mode Header */}
-        <div className={`border-b border-border glass p-4 ${
+        <motion.div 
+          className={`border-b border-border/50 backdrop-blur-xl p-4 relative z-10 ${
           mode === "study"
-            ? "bg-gradient-to-r from-blue-500/10 to-purple-500/10"
-            : "bg-gradient-to-r from-pink-500/10 to-rose-500/10"
-        }`}>
+              ? "bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10"
+              : "bg-gradient-to-r from-pink-500/10 via-rose-500/10 to-pink-500/10"
+          }`}
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               {mode === "study" ? (
                 <>
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                    <BookOpen className="w-5 h-5 text-white" />
-                  </div>
+                  <motion.div 
+                    className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg relative"
+                    animate={{
+                      rotate: [0, 5, -5, 0]
+                    }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  >
+                    <BookOpen className="w-6 h-6 text-white relative z-10" />
+                    <motion.div
+                      className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 blur-md"
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.5, 0.8, 0.5]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                  </motion.div>
                   <div>
-                    <h2 className="font-semibold">Study Mode</h2>
-                    <p className="text-xs text-muted-foreground">AI-powered learning assistant</p>
+                    <h2 className="font-bold text-lg">Study Mode</h2>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      AI-powered learning assistant
+                    </p>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
-                    <Smile className="w-5 h-5 text-white" />
-                  </div>
+                  <motion.div 
+                    className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg relative"
+                    animate={{
+                      scale: [1, 1.05, 1]
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  >
+                    <Smile className="w-6 h-6 text-white relative z-10" />
+                    <motion.div
+                      className="absolute inset-0 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 blur-md"
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.5, 0.8, 0.5]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                  </motion.div>
                   <div>
-                    <h2 className="font-semibold">Friend Mode</h2>
-                    <p className="text-xs text-muted-foreground">Your caring companion</p>
+                    <h2 className="font-bold text-lg">Friend Mode</h2>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Heart className="w-3 h-3 animate-pulse" />
+                      Your caring companion
+                    </p>
                   </div>
                 </>
               )}
             </div>
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
             <Button
               onClick={toggleMode}
               variant="ghost"
@@ -397,11 +564,12 @@ const Home = () => {
             >
               {mode === "study" ? <Heart className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
             </Button>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4 md:p-6" ref={scrollRef}>
+        <ScrollArea className="flex-1 p-4 md:p-6">
           <div className="max-w-4xl mx-auto space-y-6">
             {isFetchingHistory ? (
               <div className="flex items-center justify-center py-12">
@@ -409,27 +577,90 @@ const Home = () => {
               </div>
             ) : messages.length === 0 ? (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
                 className="text-center py-12"
               >
-                <div className={`w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center ${
+                <motion.div 
+                  className={`w-24 h-24 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-2xl relative ${
                   mode === "study"
                     ? "bg-gradient-to-br from-blue-500 to-purple-500"
                     : "bg-gradient-to-br from-pink-500 to-rose-500"
-                }`}>
+                  }`}
+                  animate={{
+                    y: [0, -10, 0]
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                >
                   {mode === "study" ? (
-                    <GraduationCap className="w-10 h-10 text-white" />
+                    <GraduationCap className="w-12 h-12 text-white relative z-10" />
                   ) : (
-                    <Heart className="w-10 h-10 text-white animate-pulse" />
+                    <Heart className="w-12 h-12 text-white animate-pulse relative z-10" />
                   )}
-                </div>
-                <h3 className="text-xl font-semibold mb-2">
+                  <motion.div
+                    className={`absolute inset-0 rounded-2xl ${
+                      mode === "study"
+                        ? "bg-gradient-to-br from-blue-500 to-purple-500"
+                        : "bg-gradient-to-br from-pink-500 to-rose-500"
+                    } blur-xl`}
+                    animate={{
+                      scale: [1, 1.5, 1],
+                      opacity: [0.5, 0.8, 0.5]
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  />
+                </motion.div>
+                <motion.h3 
+                  className="text-2xl font-bold mb-3"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
                   {mode === "study" ? "Ready to Learn!" : "Here for You!"}
-                </h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
+                </motion.h3>
+                <motion.p 
+                  className="text-muted-foreground max-w-md mx-auto text-lg leading-relaxed"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
                   {getWelcomeMessage()}
-                </p>
+                </motion.p>
+                
+                {/* Floating sparkles */}
+                {[...Array(5)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className={`absolute w-2 h-2 rounded-full ${
+                      mode === "study" ? "bg-blue-500/30" : "bg-pink-500/30"
+                    }`}
+                    animate={{
+                      y: [0, -30, 0],
+                      x: [0, (Math.random() - 0.5) * 40, 0],
+                      opacity: [0, 1, 0],
+                      scale: [0, 1, 0]
+                    }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      delay: i * 0.4,
+                      ease: "easeInOut"
+                    }}
+                    style={{
+                      left: `${30 + i * 10}%`,
+                      top: "30%",
+                    }}
+                  />
+                ))}
               </motion.div>
             ) : (
               <AnimatePresence mode="popLayout">
@@ -485,12 +716,19 @@ const Home = () => {
                 </div>
               </motion.div>
             )}
+            
+            {/* Scroll anchor */}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="border-t border-border glass p-4">
-          <div className="max-w-4xl mx-auto flex gap-2">
+        <div className="border-t border-border/50 backdrop-blur-xl p-4 relative z-10">
+          <div className="max-w-4xl mx-auto flex gap-3">
+            <motion.div 
+              className="flex-1 relative"
+              whileFocus={{ scale: 1.01 }}
+            >
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -500,25 +738,48 @@ const Home = () => {
                   ? "Ask me anything you want to learn..." 
                   : "Share what's on your mind..."
               }
-              className="h-12 rounded-xl glass border-border"
+                className="h-14 rounded-2xl glass border-2 border-border/50 focus:border-primary/50 pr-12 text-base"
               disabled={isLoading}
             />
+              {input.trim() && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  <Sparkles className={`w-5 h-5 ${
+                    mode === "study" ? "text-blue-500" : "text-pink-500"
+                  }`} />
+                </motion.div>
+              )}
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
             <Button
               onClick={handleSend}
               size="icon"
               disabled={isLoading || !input.trim()}
-              className={`h-12 w-12 rounded-xl hover:opacity-90 glow-on-hover ${
+                className={`h-14 w-14 rounded-2xl hover:opacity-90 shadow-lg hover:shadow-xl transition-all relative overflow-hidden group ${
                 mode === "study"
                   ? "bg-gradient-to-br from-blue-500 to-purple-500"
                   : "bg-gradient-to-br from-pink-500 to-rose-500"
               }`}
             >
+                <motion.div
+                  className="absolute inset-0 bg-white/20"
+                  initial={{ scale: 0, opacity: 0 }}
+                  whileHover={{ scale: 2, opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                />
               {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-6 h-6 animate-spin relative z-10" />
               ) : (
-                <Send className="w-5 h-5" />
+                  <Send className="w-6 h-6 relative z-10 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               )}
             </Button>
+            </motion.div>
           </div>
         </div>
       </div>

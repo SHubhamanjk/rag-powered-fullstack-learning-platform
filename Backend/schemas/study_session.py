@@ -153,3 +153,76 @@ class GenerateSessionMindmapResponse(BaseModel):
     mindmaps: List[MindmapItem]
     message: str
 
+# ============================================================================
+# EVALUATE QUIZ IN SESSION
+# ============================================================================
+
+class QuizAnswerInput(BaseModel):
+    question_id: str
+    answer: Any  # Can be int (for MCQ) or str (for descriptive)
+
+class EvaluateSessionQuizRequest(BaseModel):
+    quiz_id: str
+    answers: List[QuizAnswerInput]
+
+class QuestionResult(BaseModel):
+    question_id: str
+    question: str
+    user_answer: Any
+    correct_answer: Any
+    is_correct: bool
+    score: float
+    max_score: float
+    feedback: Optional[str]
+
+class EvaluateSessionQuizResponse(BaseModel):
+    quiz_id: str
+    session_id: str
+    total_questions: int
+    correct_answers: int
+    total_score: float
+    max_score: float
+    percentage: float
+    results: List[QuestionResult]
+    overall_feedback: str
+    strengths: List[str]
+    areas_for_improvement: List[str]
+    study_suggestions: List[str]
+
+# ============================================================================
+# GET QUIZZES FOR SESSION
+# ============================================================================
+
+class QuizSummary(BaseModel):
+    quiz_id: str
+    created_at: str
+    is_evaluated: bool
+    total_questions: int
+    score: Optional[float] = None
+    percentage: Optional[float] = None
+
+class GetSessionQuizzesResponse(BaseModel):
+    session_id: str
+    quizzes: List[QuizSummary]
+
+# ============================================================================
+# GET QUIZ DETAILS
+# ============================================================================
+
+class GetQuizDetailsResponse(BaseModel):
+    quiz_id: str
+    session_id: str
+    mcq_questions: List[Dict[str, Any]]
+    descriptive_questions: List[Dict[str, Any]]
+    created_at: str
+    is_evaluated: bool
+    evaluation_report: Optional[Dict[str, Any]]
+
+# ============================================================================
+# GET MINDMAPS FOR SESSION
+# ============================================================================
+
+class GetSessionMindmapsResponse(BaseModel):
+    session_id: str
+    mindmaps: List[MindmapItem]
+

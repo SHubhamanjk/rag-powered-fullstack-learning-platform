@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Brain, Mail, Lock, User, ArrowRight, GraduationCap, Calendar } from "lucide-react";
+import { Brain, Mail, Lock, User, ArrowRight, GraduationCap, Calendar, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -113,29 +113,155 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Futuristic Background Effects */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          className="absolute top-20 left-10 w-96 h-96 bg-primary/20 rounded-full blur-3xl"
+          animate={{
+            scale: [1, 1.2, 1],
+            x: [0, 50, 0],
+            y: [0, 30, 0]
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="absolute bottom-20 right-10 w-96 h-96 bg-secondary/20 rounded-full blur-3xl"
+          animate={{
+            scale: [1.2, 1, 1.2],
+            x: [0, -50, 0],
+            y: [0, -30, 0]
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        {/* Floating particles */}
+        {[...Array(12)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 rounded-full bg-primary/40"
+            animate={{
+              y: [0, -100, 0],
+              x: [0, (Math.random() - 0.5) * 100, 0],
+              opacity: [0, 1, 0],
+            }}
+            transition={{
+              duration: 5 + Math.random() * 3,
+              repeat: Infinity,
+              delay: i * 0.4,
+              ease: "easeInOut"
+            }}
+            style={{
+              left: `${10 + i * 8}%`,
+              top: `${20 + (i % 5) * 15}%`,
+            }}
+          />
+        ))}
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl"
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-2xl relative z-10"
       >
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Brain className="w-10 h-10 text-primary animate-glow-pulse" />
-            <span className="text-2xl font-bold gradient-text">Medha.ai</span>
-          </div>
-          <h1 className="text-3xl font-bold mb-2">Create Your Account</h1>
-          <p className="text-muted-foreground">Start your AI-powered learning journey</p>
+          <motion.div 
+            className="flex items-center justify-center gap-3 mb-6"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <motion.div
+              className="relative"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            >
+              <Brain className="w-12 h-12 text-primary relative z-10" />
+              <motion.div
+                className="absolute inset-0 blur-xl bg-primary/50 rounded-full"
+                animate={{
+                  scale: [1, 1.5, 1],
+                  opacity: [0.5, 0.8, 0.5]
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+            </motion.div>
+            <span className="text-3xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
+              Medha.ai
+            </span>
+          </motion.div>
+          <motion.h1 
+            className="text-4xl font-bold mb-3"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            Create Your Account
+          </motion.h1>
+          <motion.p 
+            className="text-muted-foreground text-lg"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            Start your AI-powered learning journey
+          </motion.p>
         </div>
 
-        <div className="glass rounded-2xl p-8 border border-border">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <motion.div 
+          className="glass-strong rounded-3xl p-8 border-2 border-border/50 hover:border-primary/30 transition-all shadow-2xl backdrop-blur-2xl relative overflow-hidden"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          {/* Animated gradient overlay */}
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-0 hover:opacity-100 transition-opacity duration-500"
+          />
+          
+          {/* Scan line effect */}
+          <motion.div
+            className="absolute inset-0 opacity-10"
+            animate={{
+              backgroundPosition: ["0% 0%", "100% 100%"]
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+            style={{
+              backgroundImage: "linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.1) 50%, transparent 55%)",
+              backgroundSize: "200% 200%"
+            }}
+          />
+          <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
             {/* Basic Information */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <User className="w-5 h-5 text-primary" />
-                Basic Information
-              </h2>
+            <motion.div 
+              className="space-y-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+                <h2 className="text-lg font-bold">Basic Information</h2>
+                <Sparkles className="w-4 h-4 text-primary ml-auto" />
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -220,14 +346,22 @@ const Signup = () => {
                   />
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Educational Details */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-primary" />
-                Educational Details
-              </h2>
+            <motion.div 
+              className="space-y-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+            >
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
+                  <GraduationCap className="w-5 h-5 text-white" />
+                </div>
+                <h2 className="text-lg font-bold">Educational Details</h2>
+                <Sparkles className="w-4 h-4 text-blue-500 ml-auto" />
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 md:col-span-2">
@@ -295,34 +429,53 @@ const Signup = () => {
                   />
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 h-11 glow-on-hover"
-              disabled={isLoading}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
-              {isLoading ? "Creating Account..." : "Create Account"}
-              {!isLoading && <ArrowRight className="ml-2 w-4 h-4" />}
-            </Button>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 h-14 text-lg shadow-xl hover:shadow-2xl transition-all relative overflow-hidden group"
+                disabled={isLoading}
+              >
+                <motion.div
+                  className="absolute inset-0 bg-white/20"
+                  initial={{ x: "-100%" }}
+                  whileHover={{ x: "100%" }}
+                  transition={{ duration: 0.5 }}
+                />
+                <span className="relative z-10">{isLoading ? "Creating Account..." : "Create Account"}</span>
+                {!isLoading && <ArrowRight className="ml-2 w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />}
+              </Button>
+            </motion.div>
 
-            <div className="text-center text-sm text-muted-foreground">
+            <motion.div 
+              className="text-center text-sm text-muted-foreground"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1 }}
+            >
               Already have an account?{" "}
               <Button
                 type="button"
                 variant="link"
-                className="text-primary p-0 h-auto"
+                className="text-primary p-0 h-auto font-semibold hover:underline"
                 onClick={() => navigate("/login")}
                 disabled={isLoading}
               >
-                Sign in
-              </Button>
-            </div>
-          </form>
-        </div>
+              Sign in
+            </Button>
+          </motion.div>
+        </form>
       </motion.div>
-    </div>
-  );
+    </motion.div>
+  </div>
+);
 };
 
 export default Signup;

@@ -25,6 +25,9 @@ from endpoints import (
     
     # Analytics & Dashboard
     dashboard,
+    
+    # Contact Form
+    contact,
 )
 
 app = FastAPI(
@@ -118,6 +121,14 @@ app.include_router(
     dashboard.router,
     prefix="/dashboard",
     tags=["Analytics & Dashboard"]
+)
+
+# ============================================================================
+# CONTACT FORM
+# ============================================================================
+app.include_router(
+    contact.router,
+    tags=["Contact"]
 )
 
 # ============================================================================

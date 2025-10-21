@@ -8,7 +8,9 @@ from schemas.study_session import (
     UpdateStudySessionRequest, UpdateStudySessionResponse,
     DeleteStudySessionResponse,
     GenerateSessionQuizRequest, GenerateSessionQuizResponse,
-    GenerateSessionMindmapRequest, GenerateSessionMindmapResponse
+    GenerateSessionMindmapRequest, GenerateSessionMindmapResponse,
+    EvaluateSessionQuizRequest, EvaluateSessionQuizResponse,
+    GetSessionQuizzesResponse, GetQuizDetailsResponse, GetSessionMindmapsResponse
 )
 from services.study_session_service import (
     create_study_session,
@@ -18,7 +20,11 @@ from services.study_session_service import (
     delete_study_session,
     study_assistant_chat,
     generate_session_quiz,
-    generate_session_mindmaps
+    generate_session_mindmaps,
+    evaluate_session_quiz,
+    get_session_quizzes,
+    get_quiz_details,
+    get_session_mindmaps
 )
 
 router = APIRouter()
@@ -219,7 +225,99 @@ async def generate_mindmap_endpoint(
         result = await generate_session_mindmaps(req.session_id)
         return GenerateSessionMindmapResponse(**result)
     except ValueError as e:
+        print(f"ValueError in mindmap generation: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        print(f"Exception in mindmap generation: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.post("/quiz/evaluate", response_model=EvaluateSessionQuizResponse)
+async def evaluate_quiz_endpoint(
+    req: EvaluateSessionQuizRequest = Body(...),
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Evaluate a study session quiz.
+    
+    - **quiz_id**: Quiz ID from generated quiz
+    - **answers**: List of answers with question_id and answer (int for MCQ, str for descriptive)
+    
+    Returns detailed evaluation with:
+    - Individual question feedback
+    - Overall score and percentage
+    - Strengths and areas for improvement
+    - Personalized study suggestions
+    """
+    try:
+        # Convert Pydantic models to dicts for service
+        answers_list = [{"question_id": ans.question_id, "answer": ans.answer} for ans in req.answers]
+        result = await evaluate_session_quiz(req.quiz_id, answers_list)
+        return EvaluateSessionQuizResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.get("/{session_id}/quizzes", response_model=GetSessionQuizzesResponse)
+async def get_session_quizzes_endpoint(
+    session_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Get all quizzes for a study session.
+    
+    - **session_id**: Study session ID
+    
+    Returns list of all quizzes with their evaluation status and scores.
+    """
+    try:
+        result = await get_session_quizzes(session_id)
+        return GetSessionQuizzesResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.get("/quiz/{quiz_id}", response_model=GetQuizDetailsResponse)
+async def get_quiz_details_endpoint(
+    quiz_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Get quiz details including questions and evaluation results.
+    
+    - **quiz_id**: Quiz ID
+    
+    Returns full quiz details. If quiz is evaluated, includes correct answers and evaluation report.
+    If not evaluated, correct answers are hidden.
+    """
+    try:
+        result = await get_quiz_details(quiz_id)
+        return GetQuizDetailsResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.get("/{session_id}/mindmaps", response_model=GetSessionMindmapsResponse)
+async def get_session_mindmaps_endpoint(
+    session_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Get all mindmaps for a study session.
+    
+    - **session_id**: Study session ID
+    
+    Returns list of all mindmaps with their images.
+    """
+    try:
+        result = await get_session_mindmaps(session_id)
+        return GetSessionMindmapsResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 

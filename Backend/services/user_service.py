@@ -7,6 +7,7 @@ from utils.db import get_user_collection, get_otp_collection, get_password_reset
 from utils.email import send_otp_email
 from utils.jwt_auth import create_access_token
 from utils.timezone import get_current_time
+from utils.cache import cache_response, invalidate_user_cache
 from models.user import UserProfile
 
 # Password hashing configuration

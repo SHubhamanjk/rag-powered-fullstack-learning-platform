@@ -710,8 +710,60 @@ const TutorialWatch = () => {
   // Tutorial List View
   if (!selectedTutorial) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] p-6">
-        <div className="container max-w-6xl mx-auto space-y-6">
+      <div className="min-h-[calc(100vh-4rem)] p-6 relative overflow-hidden">
+        {/* Futuristic Background Effects */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <motion.div
+            className="absolute top-20 left-10 w-96 h-96 bg-primary/20 rounded-full blur-3xl"
+            animate={{
+              scale: [1, 1.2, 1],
+              x: [0, 50, 0],
+              y: [0, 30, 0]
+            }}
+            transition={{
+              duration: 10,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute bottom-20 right-10 w-96 h-96 bg-secondary/20 rounded-full blur-3xl"
+            animate={{
+              scale: [1.2, 1, 1.2],
+              x: [0, -50, 0],
+              y: [0, -30, 0]
+            }}
+            transition={{
+              duration: 12,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          {/* Floating particles */}
+          {[...Array(10)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 rounded-full bg-primary/40"
+              animate={{
+                y: [0, -100, 0],
+                x: [0, (Math.random() - 0.5) * 100, 0],
+                opacity: [0, 1, 0],
+              }}
+              transition={{
+                duration: 5 + Math.random() * 3,
+                repeat: Infinity,
+                delay: i * 0.4,
+                ease: "easeInOut"
+              }}
+              style={{
+                left: `${10 + i * 9}%`,
+                top: `${20 + (i % 5) * 15}%`,
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="container max-w-6xl mx-auto space-y-6 relative z-10">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -844,7 +896,58 @@ const TutorialWatch = () => {
 
   // Tutorial Watch View
   return (
-    <div className="h-[calc(100vh-4rem)] flex">
+    <div className="h-[calc(100vh-4rem)] flex relative overflow-hidden">
+      {/* Futuristic Background Effects */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          className="absolute top-20 left-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl"
+          animate={{
+            scale: [1, 1.2, 1],
+            x: [0, 50, 0],
+            y: [0, 30, 0]
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="absolute bottom-20 right-10 w-96 h-96 bg-secondary/10 rounded-full blur-3xl"
+          animate={{
+            scale: [1.2, 1, 1.2],
+            x: [0, -50, 0],
+            y: [0, -30, 0]
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        {/* Floating particles */}
+        {[...Array(8)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-2 h-2 rounded-full bg-primary/30"
+            animate={{
+              y: [0, -100, 0],
+              x: [0, (Math.random() - 0.5) * 100, 0],
+              opacity: [0, 1, 0],
+            }}
+            transition={{
+              duration: 5 + Math.random() * 3,
+              repeat: Infinity,
+              delay: i * 0.5,
+              ease: "easeInOut"
+            }}
+            style={{
+              left: `${20 + i * 10}%`,
+              top: "50%",
+            }}
+          />
+        ))}
+      </div>
       {/* Main Video Area */}
       <div className="flex-[0.7] flex flex-col bg-black/50">
         {/* Back Button */}
@@ -926,13 +1029,13 @@ const TutorialWatch = () => {
           </TabsList>
 
           {/* Notes Tab */}
-          <TabsContent value="notes" className="flex-1 flex flex-col m-0 p-0 overflow-hidden data-[state=active]:flex">
-            <div className="flex-1 flex flex-col p-4 overflow-hidden">
+          <TabsContent value="notes" className="flex-2 flex flex-col m-0 p-0 overflow-hidden data-[state=active]:flex">
+            <div className="flex-1 flex flex-col p-4 overflow-hidden ">
               {/* Fixed Header Section */}
               <div className="space-y-4 flex-shrink-0">
               {/* Add Note Form */}
               <Card className="glass border-border">
-                <CardContent className="p-3 space-y-2">
+                <CardContent className="p-3 space-y-2 ">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                     <Clock className="w-3 h-3" />
                     <span>Current time: {formatTime(currentVideoTime)}</span>
@@ -981,7 +1084,7 @@ const TutorialWatch = () => {
             </div>
 
             {/* Scrollable Notes List */}
-            <div className="flex-1 mt-4 overflow-y-auto">
+            <div className="flex-1 mt-4 overflow-y-auto scrollbar-hide">
               <div className="space-y-2 pb-4">
                 {notes.map((note) => (
                   <Card key={note.note_id} className="glass border-border">
@@ -1058,7 +1161,7 @@ const TutorialWatch = () => {
           <TabsContent value="chat" className="flex-1 flex flex-col m-0 p-0 overflow-hidden data-[state=active]:flex">
             <div className="flex-1 flex flex-col p-4 overflow-hidden">
               {/* Scrollable Chat Messages */}
-              <div ref={chatMessagesRef} className="flex-1 mb-4 overflow-y-auto">
+              <div ref={chatMessagesRef} className="flex-1 mb-4 overflow-y-auto scrollbar-hide">
               <div className="space-y-4 pb-4">
                 {chatMessages.length === 0 ? (
                   <div className="text-center text-muted-foreground text-sm py-8">

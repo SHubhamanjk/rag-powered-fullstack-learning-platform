@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -29,6 +29,7 @@ import type { Todo, TodoStatus, ChatMessage } from "@/types/todo";
 
 const TodoPage = () => {
   const { toast } = useToast();
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   
   // State
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -65,6 +66,13 @@ const TodoPage = () => {
   useEffect(() => {
     filterTodos();
   }, [activeFilter, todos]);
+
+  // Auto-scroll chat to bottom when messages change
+  useEffect(() => {
+    if (chatMessagesEndRef.current) {
+      chatMessagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages, isChatLoading]);
 
   const fetchTodos = async () => {
     setIsFetching(true);
@@ -376,8 +384,60 @@ const TodoPage = () => {
   const categorizedTodos = categorizeTodos(filteredTodos);
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-6">
-      <div className="container max-w-6xl mx-auto space-y-6">
+    <div className="min-h-[calc(100vh-4rem)] p-6 relative overflow-hidden">
+      {/* Futuristic Background Effects */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          className="absolute top-20 left-10 w-96 h-96 bg-green-500/20 rounded-full blur-3xl"
+          animate={{
+            scale: [1, 1.2, 1],
+            x: [0, 50, 0],
+            y: [0, 30, 0]
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"
+          animate={{
+            scale: [1.2, 1, 1.2],
+            x: [0, -50, 0],
+            y: [0, -30, 0]
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        {/* Floating particles */}
+        {[...Array(10)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 rounded-full bg-green-500/40"
+            animate={{
+              y: [0, -100, 0],
+              x: [0, (Math.random() - 0.5) * 100, 0],
+              opacity: [0, 1, 0],
+            }}
+            transition={{
+              duration: 5 + Math.random() * 3,
+              repeat: Infinity,
+              delay: i * 0.4,
+              ease: "easeInOut"
+            }}
+            style={{
+              left: `${10 + i * 9}%`,
+              top: `${20 + (i % 5) * 15}%`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="container max-w-6xl mx-auto space-y-6 relative z-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -760,6 +820,9 @@ const TodoPage = () => {
                   </div>
                 </div>
               )}
+              
+              {/* Scroll anchor */}
+              <div ref={chatMessagesEndRef} />
             </div>
 
             {/* Chat Input */}

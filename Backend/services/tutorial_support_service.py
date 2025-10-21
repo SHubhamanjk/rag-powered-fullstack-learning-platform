@@ -9,6 +9,7 @@ from groq import Groq
 from youtube_transcript_api import YouTubeTranscriptApi
 from utils.db import get_tutorial_support_collection
 from utils.timezone import get_current_time
+from utils.cache import cache_response, invalidate_cache
 from prompts import (
     PRETTIFY_NOTES_PROMPT, 
     DETAILED_NOTES_PROMPT, 
@@ -306,6 +307,7 @@ async def generate_detailed_notes(tutorial_id: str) -> Dict[str, Any]:
         "detailed_notes": detailed_notes
     }
 
+@cache_response(ttl_seconds=120)  # Cache for 2 minutes
 async def get_all_tutorials(email: str) -> Dict[str, Any]:
     """Get all tutorial sessions for a user"""
     collection = get_tutorial_support_collection()
@@ -411,6 +413,7 @@ async def tutorial_ai_chat(tutorial_id: str, question: str) -> Dict[str, Any]:
         "answer": answer
     }
 
+@cache_response(ttl_seconds=60)  # Cache for 1 minute
 async def get_tutorial_chat_history(tutorial_id: str) -> Dict[str, Any]:
     """Get chat history for a tutorial"""
     collection = get_tutorial_support_collection()
@@ -717,14 +720,32 @@ Make the questions educational and comprehensive, covering both theoretical and 
             {"$set": {"quizzes": [quiz_object]}}
         )
     
+    # Remove correct answers from response (students shouldn't see these before submission)
+    mcq_for_display = []
+    for mcq in mcq_questions:
+        mcq_for_display.append({
+            "question_id": mcq["question_id"],
+            "question": mcq["question"],
+            "options": mcq["options"]
+            # Don't include correct_answer_index
+        })
+    
+    desc_for_display = []
+    for desc in descriptive_questions:
+        desc_for_display.append({
+            "question_id": desc["question_id"],
+            "question": desc["question"]
+            # Don't include expected_answer
+        })
+    
     return {
         "quiz_id": quiz_id,
         "tutorial_id": tutorial_id,
         "tutorial_title": tutorial["title"],
         "from_timestamp": from_timestamp,
         "to_timestamp": to_timestamp or "end",
-        "mcq_questions": mcq_questions,
-        "descriptive_questions": descriptive_questions,
+        "mcq_questions": mcq_for_display,
+        "descriptive_questions": desc_for_display,
         "total_questions": len(mcq_questions) + len(descriptive_questions),
         "created_at": current_time,
         "message": "Quiz generated successfully"
@@ -893,6 +914,7 @@ Provide scores and feedback for each question, plus overall analysis.
     
     return evaluation_report
 
+@cache_response(ttl_seconds=300)  # Cache for 5 minutes
 async def get_quiz_details(quiz_id: str) -> Dict[str, Any]:
     """Get quiz details including questions and evaluation"""
     collection = get_tutorial_support_collection()
@@ -919,6 +941,7 @@ async def get_quiz_details(quiz_id: str) -> Dict[str, Any]:
         "created_at": quiz["created_at"]
     }
 
+@cache_response(ttl_seconds=300)  # Cache for 5 minutes
 async def get_tutorial_quizzes(tutorial_id: str) -> Dict[str, Any]:
     """Get all quizzes for a tutorial"""
     collection = get_tutorial_support_collection()
@@ -1104,12 +1127,31 @@ Analyze these notes and determine the optimal number of mindmaps (1-5) to visual
     
     # Step 2: Generate each mindmap
     mindmaps = []
-    mindmap_topics = analysis_data.get("mindmaps", [])
+    
+    # Safely extract mindmap topics with multiple fallbacks
+    mindmap_topics = []
+    if analysis_data and isinstance(analysis_data, dict):
+        mindmap_topics = analysis_data.get("mindmaps") or analysis_data.get("topics") or analysis_data.get("concepts") or []
+    
+    if not isinstance(mindmap_topics, list):
+        mindmap_topics = []
+    
+    # If no topics found, create a default one based on the tutorial
+    if not mindmap_topics:
+        mindmap_topics = [{
+            "title": f"{tutorial_title} - Key Concepts",
+            "description": f"Overview of main topics from the notes",
+            "focus_area": "general concepts"
+        }]
     
     for idx, topic_data in enumerate(mindmap_topics[:5], 1):  # Max 5 mindmaps
-        topic_title = topic_data.get("title", f"Topic {idx}")
-        topic_desc = topic_data.get("description", "")
-        focus_area = topic_data.get("focus_area", "")
+        # Safely extract topic information
+        if not isinstance(topic_data, dict):
+            topic_data = {"title": f"Topic {idx}", "description": "", "focus_area": ""}
+        
+        topic_title = topic_data.get("title") or f"Topic {idx}"
+        topic_desc = topic_data.get("description") or ""
+        focus_area = topic_data.get("focus_area") or ""
         
         # Generate mindmap structure for this topic
         generation_prompt = f"""
@@ -1158,8 +1200,14 @@ Focus specifically on the concepts and details related to: {focus_area}
                 mindmap_json = mindmap_json.split("```")[1].split("```")[0].strip()
             
             mindmap_structure = json.loads(mindmap_json)
-        except json.JSONDecodeError as e:
-            print(f"JSON decode error for mindmap {idx}: {e}")
+            
+            # Validate structure has required fields
+            if not isinstance(mindmap_structure, dict):
+                print(f"Invalid mindmap structure for topic {idx}")
+                continue
+                
+        except (json.JSONDecodeError, IndexError, AttributeError) as e:
+            print(f"Failed to parse mindmap JSON for topic {idx}: {e}")
             print(f"Response received: {mindmap_json[:500]}")
             continue  # Skip this mindmap if parsing fails
         
@@ -1167,7 +1215,7 @@ Focus specifically on the concepts and details related to: {focus_area}
         try:
             image_b64 = render_mindmap_image(mindmap_structure)
         except Exception as e:
-            print(f"Error rendering mindmap {idx}: {e}")
+            print(f"Failed to render mindmap for topic {idx}: {e}")
             continue  # Skip if rendering fails
         
         # Create mindmap entry
@@ -1214,6 +1262,7 @@ Focus specifically on the concepts and details related to: {focus_area}
         "message": f"Generated {len(mindmaps)} mindmap(s) successfully"
     }
 
+@cache_response(ttl_seconds=300)  # Cache for 5 minutes
 async def get_tutorial_mindmaps(tutorial_id: str) -> Dict[str, Any]:
     """Get all mindmaps for a tutorial"""
     collection = get_tutorial_support_collection()

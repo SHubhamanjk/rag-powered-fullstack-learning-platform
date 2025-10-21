@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { tutorialService } from "@/services/tutorialService";
+import { studySessionService } from "@/services/studySessionService";
 
 interface QuizQuestion {
   question_id: string;
@@ -29,6 +30,7 @@ interface QuizQuestion {
 const Quiz = () => {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +41,8 @@ const Quiz = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quizResult, setQuizResult] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
+  const [isStudySession, setIsStudySession] = useState(false);
+  const [hasEvaluationReport, setHasEvaluationReport] = useState(false);
 
   useEffect(() => {
     if (quizId) {
@@ -49,20 +53,50 @@ const Quiz = () => {
   const loadQuiz = async () => {
     setIsLoading(true);
     try {
-      const response = await tutorialService.getQuizDetails(quizId!);
-      setQuizDetails(response);
+      // Check if quiz data was passed from StudyMode
+      const locationState = location.state as any;
+      if (locationState?.quizData && locationState?.isStudySession) {
+        // Use the quiz data from state
+        setIsStudySession(true);
+        const quizData = locationState.quizData;
+        setQuizDetails({
+          ...quizData,
+          tutorial_title: locationState.sessionName || "Study Session Quiz",
+        });
 
-      // Combine questions with type information
-      const mcqQuestions = (response.mcq_questions || []).map((q: any) => ({
-        ...q,
-        question_type: "mcq" as const,
-      }));
-      const descriptiveQuestions = (response.descriptive_questions || []).map((q: any) => ({
-        ...q,
-        question_type: "descriptive" as const,
-      }));
+        // Combine questions with type information
+        const mcqQuestions = (quizData.mcq_questions || []).map((q: any) => ({
+          ...q,
+          question_type: "mcq" as const,
+        }));
+        const descriptiveQuestions = (quizData.descriptive_questions || []).map((q: any) => ({
+          ...q,
+          question_type: "descriptive" as const,
+        }));
 
-      setQuizQuestions([...mcqQuestions, ...descriptiveQuestions]);
+        setQuizQuestions([...mcqQuestions, ...descriptiveQuestions]);
+        
+        // Check if quiz has been evaluated
+        if (quizData.is_evaluated && quizData.evaluation_report) {
+          setHasEvaluationReport(true);
+        }
+      } else {
+        // Fetch quiz from tutorial service (existing behavior)
+        const response = await tutorialService.getQuizDetails(quizId!);
+        setQuizDetails(response);
+
+        // Combine questions with type information
+        const mcqQuestions = (response.mcq_questions || []).map((q: any) => ({
+          ...q,
+          question_type: "mcq" as const,
+        }));
+        const descriptiveQuestions = (response.descriptive_questions || []).map((q: any) => ({
+          ...q,
+          question_type: "descriptive" as const,
+        }));
+
+        setQuizQuestions([...mcqQuestions, ...descriptiveQuestions]);
+      }
     } catch (error: any) {
       toast({
         title: "Failed to Load Quiz",
@@ -103,15 +137,18 @@ const Quiz = () => {
 
     setIsSubmitting(true);
     try {
-      const answers = Object.entries(quizAnswers).map(([questionId, answer]) => ({
+      const answersArray = Object.entries(quizAnswers).map(([questionId, answer]) => ({
         question_id: questionId,
         answer: answer,
       }));
 
-      const response = await tutorialService.submitQuiz({
-        quiz_id: quizId,
-        answers: answers,
-      });
+      // Use different endpoint based on quiz type
+      const response = isStudySession
+        ? await studySessionService.evaluateQuiz(quizId, answersArray)
+        : await tutorialService.submitQuiz({
+            quiz_id: quizId,
+            answers: answersArray as any,
+          });
 
       setQuizResult(response);
       setShowResults(true);
@@ -138,6 +175,13 @@ const Quiz = () => {
     setQuizResult(null);
   };
 
+  const viewEvaluationResults = () => {
+    if (quizDetails?.evaluation_report) {
+      setQuizResult(quizDetails.evaluation_report);
+      setShowResults(true);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -157,7 +201,7 @@ const Quiz = () => {
             className="mb-6 gap-2"
           >
             <ChevronLeft className="w-4 h-4" />
-            Back to Tutorial
+            {isStudySession ? "Back to Study Session" : "Back to Tutorial"}
           </Button>
 
           {/* Results Header */}
@@ -333,7 +377,7 @@ const Quiz = () => {
               onClick={() => navigate(-1)}
               className="bg-gradient-to-r from-primary to-secondary"
             >
-              Back to Tutorial
+              {isStudySession ? "Back to Study Session" : "Back to Tutorial"}
             </Button>
           </div>
         </div>
@@ -352,13 +396,23 @@ const Quiz = () => {
             <ChevronLeft className="w-4 h-4" />
             Back
           </Button>
-          <div className="text-center">
+          <div className="text-center flex-1">
             <h1 className="text-2xl font-bold">Practice Test</h1>
             <p className="text-sm text-muted-foreground">
               {quizDetails?.tutorial_title}
             </p>
           </div>
-          <div className="w-20" /> {/* Spacer for alignment */}
+          {hasEvaluationReport && !showResults && (
+            <Button
+              onClick={viewEvaluationResults}
+              variant="outline"
+              className="gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              View Results
+            </Button>
+          )}
+          {!hasEvaluationReport && <div className="w-20" />}
         </div>
 
         {/* Progress */}
