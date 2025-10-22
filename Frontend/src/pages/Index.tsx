@@ -318,7 +318,7 @@ const Index = () => {
       </motion.nav>
 
       {/* Hero Section - Enhanced */}
-      <section className="pt-32 pb-20 px-4 relative">
+      <section className="pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 md:pb-20 px-4 relative">
         <div className="max-w-7xl mx-auto w-full">
           <motion.div
             style={{ opacity }}
@@ -328,19 +328,19 @@ const Index = () => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full glass-strong border border-primary/30 mb-8 shadow-lg shadow-primary/10"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 md:py-2.5 rounded-full glass-strong border border-primary/30 mb-6 sm:mb-8 shadow-lg shadow-primary/10"
             >
-              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold">Powered by Advanced AI Technology</span>
-              <ChevronRight className="w-4 h-4 text-primary" />
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary animate-pulse" />
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+              <span className="text-xs sm:text-sm font-semibold">Powered by Advanced AI Technology</span>
+              <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
             </motion.div>
 
             <motion.h1 
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.5 }}
-              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-6 leading-[1.1]"
+              className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-6 leading-[1.1]"
             >
               Study Smarter with
               <br />
@@ -361,7 +361,7 @@ const Index = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed"
+              className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed px-4"
             >
               Transform your learning experience with AI-powered doubt solving, 
               <span className="text-primary font-semibold"> interactive tutorials</span>, and 
@@ -372,24 +372,22 @@ const Index = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"
+              className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-12"
             >
               <Button 
-                size="lg"
-                className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 h-14 px-10 text-lg shadow-2xl shadow-primary/30 group"
+                className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 h-10 sm:h-12 md:h-14 px-6 sm:px-8 md:px-10 text-sm sm:text-base md:text-lg shadow-2xl shadow-primary/30 group"
                 onClick={() => navigate("/signup")}
               >
-                <Rocket className="mr-2 w-5 h-5 group-hover:-translate-y-1 transition-transform" />
+                <Rocket className="mr-1.5 sm:mr-2 w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-y-1 transition-transform" />
                 Start Learning Free
-                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="ml-1.5 sm:ml-2 w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button 
-                size="lg"
                 variant="outline"
-                className="h-14 px-10 text-lg glass-strong border-border/50 hover:border-primary/50"
+                className="h-10 sm:h-12 md:h-14 px-6 sm:px-8 md:px-10 text-sm sm:text-base md:text-lg glass-strong border-border/50 hover:border-primary/50"
                 onClick={() => navigate("/login")}
               >
-                <Play className="mr-2 w-5 h-5" />
+                <Play className="mr-1.5 sm:mr-2 w-4 h-4 sm:w-5 sm:h-5" />
                 Watch Demo
               </Button>
             </motion.div>

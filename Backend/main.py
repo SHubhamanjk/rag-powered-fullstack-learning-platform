@@ -11,7 +11,8 @@ from endpoints import (
     friend_chat,
     
     # Media Processing
-    tts,
+    # TTS - COMMENTED OUT TO REDUCE MEMORY USAGE
+    # tts,
     stt,
     
     # Task Management
@@ -75,11 +76,12 @@ app.include_router(
 # ============================================================================
 # MEDIA PROCESSING
 # ============================================================================
-app.include_router(
-    tts.router,
-    prefix="/tts",
-    tags=["Media Processing"]
-)
+# TTS - COMMENTED OUT TO REDUCE MEMORY USAGE
+# app.include_router(
+#     tts.router,
+#     prefix="/tts",
+#     tags=["Media Processing"]
+# )
 
 app.include_router(
     stt.router,

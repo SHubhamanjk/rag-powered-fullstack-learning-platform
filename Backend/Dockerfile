@@ -2,11 +2,12 @@ FROM python:3.11-slim
 
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
-        espeak-ng \
-        libsndfile1 \
         git \
         graphviz \
     && rm -rf /var/lib/apt/lists/*
+# TTS DEPENDENCIES - COMMENTED OUT TO REDUCE IMAGE SIZE
+# espeak-ng (used by kokoro TTS)
+# libsndfile1 (used by soundfile for audio processing)
 
 WORKDIR /app
 
