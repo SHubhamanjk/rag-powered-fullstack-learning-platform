@@ -167,7 +167,7 @@ const Contact = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4">
+      <section className="pt-24 sm:pt-32 pb-16 sm:pb-20 px-4">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -179,14 +179,14 @@ const Contact = () => {
               <span className="text-sm font-medium">Let's Connect</span>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold mb-6">
               Get in{" "}
               <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 Touch
               </span>
             </h1>
             
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto">
               Have questions, feedback, or want to collaborate? We'd love to hear from you!
             </p>
           </motion.div>
@@ -220,7 +220,7 @@ const Contact = () => {
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 mb-16 sm:mb-20">
             {/* Contact Form */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}

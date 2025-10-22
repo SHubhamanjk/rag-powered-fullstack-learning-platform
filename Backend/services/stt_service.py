@@ -56,5 +56,4 @@ async def speech_to_text_from_file(audio_file: UploadFile):
                 pass
                 
     except Exception as e:
-        print(f"Error in speech_to_text_from_file: {e}")
         return "Sorry, I couldn't understand the audio. Please try again."

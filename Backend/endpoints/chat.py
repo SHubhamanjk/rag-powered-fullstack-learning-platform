@@ -3,13 +3,15 @@ from schemas.chat import (
     ChatRequest, ChatResponse,
     CreateChatResponse,
     ChatHistoryResponse, UserChatsResponse,
-    DeleteChatResponse
+    DeleteChatResponse,
+    TemporaryChatRequest, TemporaryChatResponse
 )
 from services.chat_service import (
     generate_reply, create_chat, get_chat_history,
-    get_user_chats, delete_chat
+    get_user_chats, delete_chat, generate_temporary_reply
 )
 from utils.jwt_auth import get_current_user
+from utils.error_handler import get_user_friendly_error, get_error_message
 
 router = APIRouter()
 
@@ -29,9 +31,11 @@ async def create_chat_endpoint(
             message="Chat created successfully"
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        error_info = get_user_friendly_error(e)
+        raise HTTPException(status_code=404, detail=error_info["message"])
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        error_info = get_user_friendly_error(e)
+        raise HTTPException(status_code=500, detail=error_info["message"])
 
 @router.post("/", response_model=ChatResponse)
 async def chat_endpoint(
@@ -47,6 +51,9 @@ async def chat_endpoint(
     Requires JWT authentication.
     """
     try:
+        if not req.message or not req.message.strip():
+            raise HTTPException(status_code=400, detail="Please provide a message to send.")
+        
         reply, chat_id, title = await generate_reply(
             req.chat_id,
             req.message,
@@ -59,9 +66,11 @@ async def chat_endpoint(
             title=title
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        error_info = get_user_friendly_error(e)
+        raise HTTPException(status_code=400, detail=error_info["message"])
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        error_info = get_user_friendly_error(e)
+        raise HTTPException(status_code=500, detail=error_info["message"])
 
 @router.get("/my-chats", response_model=UserChatsResponse)
 async def get_user_chats_endpoint(
@@ -77,9 +86,10 @@ async def get_user_chats_endpoint(
         chats = await get_user_chats(current_user)
         return UserChatsResponse(email=current_user, chats=chats)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        error_info = get_user_friendly_error(e)
+        raise HTTPException(status_code=404, detail=error_info["message"])
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to load your conversations. Please try again.")
 
 @router.get("/{chat_id}", response_model=ChatHistoryResponse)
 async def get_chat_endpoint(
@@ -94,15 +104,16 @@ async def get_chat_endpoint(
     try:
         chat_data = await get_chat_history(chat_id)
         if not chat_data:
-            raise HTTPException(status_code=404, detail="Chat not found")
+            raise HTTPException(status_code=404, detail=get_error_message("chat_not_found"))
         
         return ChatHistoryResponse(**chat_data)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        error_info = get_user_friendly_error(e)
+        raise HTTPException(status_code=400, detail=error_info["message"])
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to load this conversation. Please try again.")
 
 @router.delete("/{chat_id}", response_model=DeleteChatResponse)
 async def delete_chat_endpoint(
@@ -116,15 +127,48 @@ async def delete_chat_endpoint(
     try:
         success = await delete_chat(chat_id, current_user)
         if not success:
-            raise HTTPException(status_code=404, detail="Chat not found")
+            raise HTTPException(status_code=404, detail=get_error_message("chat_not_found"))
         
         return DeleteChatResponse(
             message="Chat deleted successfully",
             chat_id=chat_id
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        error_info = get_user_friendly_error(e)
+        raise HTTPException(status_code=400, detail=error_info["message"])
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to delete this conversation. Please try again.")
+
+@router.post("/temporary", response_model=TemporaryChatResponse)
+async def temporary_chat_endpoint(
+    req: TemporaryChatRequest = Body(...),
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Temporary chat that doesn't save to database.
+    
+    - Maintains conversation context via conversation_history in request
+    - No chat_id needed
+    - History is managed client-side
+    - Perfect for quick questions without cluttering chat history
+    
+    Requires JWT authentication.
+    """
+    try:
+        if not req.message or not req.message.strip():
+            raise HTTPException(status_code=400, detail="Please provide a message to send.")
+        
+        # Convert Pydantic models to dicts for service layer
+        history = [{"role": msg.role, "content": msg.content} for msg in req.conversation_history]
+        
+        reply = await generate_temporary_reply(history, req.message)
+        
+        return TemporaryChatResponse(response=reply)
+    except ValueError as e:
+        error_info = get_user_friendly_error(e)
+        raise HTTPException(status_code=400, detail=error_info["message"])
+    except Exception as e:
+        error_info = get_user_friendly_error(e)
+        raise HTTPException(status_code=500, detail=error_info["message"])

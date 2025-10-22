@@ -185,7 +185,7 @@ const ForgotPassword = () => {
   const stepInfo = getStepInfo();
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -194,13 +194,13 @@ const ForgotPassword = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Brain className="w-10 h-10 text-primary animate-glow-pulse" />
-            <span className="text-2xl font-bold gradient-text">Medha.ai</span>
+            <span className="text-xl sm:text-2xl font-bold gradient-text">Medha.ai</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2">{stepInfo.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{stepInfo.title}</h1>
           <p className="text-muted-foreground">{stepInfo.description}</p>
         </div>
 
-        <div className="glass rounded-2xl p-8 border border-border">
+        <div className="glass rounded-2xl p-6 sm:p-8 border border-border">
           {/* Step 1: Email Input */}
           {currentStep === "email" && (
             <form onSubmit={handleSendOtp} className="space-y-6">

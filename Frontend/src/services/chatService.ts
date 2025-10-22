@@ -8,6 +8,9 @@ import type {
   ChatHistory,
   GetChatsResponse,
   DeleteChatResponse,
+  TemporaryChatRequest,
+  TemporaryChatResponse,
+  TemporaryChatMessage,
 } from "@/types/chat";
 
 class ChatService {
@@ -39,6 +42,19 @@ class ChatService {
   // Delete a chat
   async deleteChat(chatId: string): Promise<DeleteChatResponse> {
     return apiService.delete<DeleteChatResponse>(`/chat/${chatId}`);
+  }
+
+  // Send a temporary message (no database storage)
+  async sendTemporaryMessage(
+    message: string,
+    conversationHistory: TemporaryChatMessage[]
+  ): Promise<string> {
+    const payload: TemporaryChatRequest = {
+      message,
+      conversation_history: conversationHistory,
+    };
+    const response = await apiService.post<TemporaryChatResponse>("/chat/temporary", payload);
+    return response.response;
   }
 }
 

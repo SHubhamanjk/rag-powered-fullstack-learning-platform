@@ -34,24 +34,61 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      
+      // Handle non-JSON responses
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        data = { detail: "Invalid response from server" };
+      }
 
       if (!response.ok) {
+        // Handle specific status codes with user-friendly messages
+        let errorMessage = this.extractErrorMessage(data);
+        
+        // Provide specific messages for common HTTP status codes
+        if (response.status === 401) {
+          errorMessage = errorMessage || "Your session has expired. Please log in again.";
+          // Clear auth token on 401
+          localStorage.removeItem("authToken");
+        } else if (response.status === 403) {
+          errorMessage = errorMessage || "You don't have permission to perform this action.";
+        } else if (response.status === 404) {
+          errorMessage = errorMessage || "The requested resource was not found.";
+        } else if (response.status === 500) {
+          errorMessage = errorMessage || "Server error. Please try again later.";
+        } else if (response.status === 503) {
+          errorMessage = "Service temporarily unavailable. Please try again later.";
+        }
+        
         throw {
           status: response.status,
-          message: this.extractErrorMessage(data),
+          message: errorMessage,
           details: data,
         };
       }
 
       return data;
     } catch (error: any) {
+      // If error already has status (thrown by us), rethrow it
       if (error.status) {
         throw error;
       }
+      
+      // Network or other errors
+      if (error.name === "TypeError" || error.message?.includes("fetch")) {
+        throw {
+          status: 0,
+          message: "Network error. Please check your internet connection and try again.",
+          details: error,
+        };
+      }
+      
+      // Unknown errors
       throw {
         status: 0,
-        message: "Network error. Please check your connection.",
+        message: "An unexpected error occurred. Please try again.",
         details: error,
       };
     }
@@ -59,13 +96,37 @@ class ApiService {
 
   // Extract user-friendly error message
   private extractErrorMessage(errorData: any): string {
+    // Check for detail field (FastAPI standard)
     if (typeof errorData.detail === "string") {
       return errorData.detail;
     }
+    
+    // Handle validation errors (array of error objects)
     if (Array.isArray(errorData.detail)) {
-      return errorData.detail.map((e: any) => e.msg).join(", ");
+      const errors = errorData.detail.map((e: any) => {
+        if (e.msg) {
+          return e.msg;
+        }
+        if (e.message) {
+          return e.message;
+        }
+        return "Invalid input";
+      });
+      return errors.join(". ");
     }
-    return "An error occurred";
+    
+    // Check for message field
+    if (errorData.message && typeof errorData.message === "string") {
+      return errorData.message;
+    }
+    
+    // Check for error field
+    if (errorData.error && typeof errorData.error === "string") {
+      return errorData.error;
+    }
+    
+    // Default fallback
+    return "Something went wrong. Please try again.";
   }
 
   // GET request

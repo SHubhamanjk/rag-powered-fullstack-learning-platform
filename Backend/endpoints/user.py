@@ -13,6 +13,7 @@ from services.user_service import (
     initiate_password_reset, verify_otp, reset_password
 )
 from utils.jwt_auth import get_current_user
+from utils.error_handler import get_user_friendly_error, get_error_message
 
 router = APIRouter()
 
@@ -37,13 +38,17 @@ async def create_user_endpoint(user_data: UserCreateRequest = Body(...)):
         
         return UserCreateResponse(
             email=result["email"],
-            message="User created successfully",
+            message="Account created successfully! Welcome to Medha.ai",
             token=result["token"]
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Check for specific error messages
+        error_msg = str(e).lower()
+        if "already exists" in error_msg or "duplicate" in error_msg:
+            raise HTTPException(status_code=400, detail=get_error_message("email_exists"))
+        raise HTTPException(status_code=400, detail=get_user_friendly_error(e)["message"])
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to create your account. Please try again.")
 
 @router.post("/login", response_model=UserLoginResponse)
 async def login_user_endpoint(login_data: UserLoginRequest = Body(...)):
@@ -59,13 +64,14 @@ async def login_user_endpoint(login_data: UserLoginRequest = Body(...)):
         return UserLoginResponse(
             email=result["email"],
             name=result["name"],
-            message="Login successful",
+            message="Welcome back! Login successful",
             token=result["token"]
         )
     except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        # Provide generic message for security (don't reveal if email exists)
+        raise HTTPException(status_code=401, detail=get_error_message("invalid_credentials"))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to log you in. Please try again.")
 
 @router.put("/me", response_model=UserUpdateResponse)
 async def update_user_endpoint(

@@ -192,63 +192,65 @@ const Quiz = () => {
 
   if (showResults && quizResult) {
     return (
-      <div className="min-h-screen p-6">
+      <div className="min-h-screen p-4 sm:p-6">
         <div className="container max-w-4xl mx-auto">
           {/* Back Button */}
           <Button
             onClick={() => navigate(-1)}
             variant="ghost"
-            className="mb-6 gap-2"
+            size="sm"
+            className="mb-4 sm:mb-6 gap-2"
           >
             <ChevronLeft className="w-4 h-4" />
-            {isStudySession ? "Back to Study Session" : "Back to Tutorial"}
+            <span className="hidden sm:inline">{isStudySession ? "Back to Study Session" : "Back to Tutorial"}</span>
+            <span className="sm:hidden">Back</span>
           </Button>
 
           {/* Results Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
+            className="text-center mb-6 sm:mb-8"
           >
-            <div className="w-24 h-24 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center mx-auto mb-4">
-              <Trophy className="w-12 h-12 text-white" />
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
             </div>
-            <h1 className="text-3xl font-bold mb-2">Quiz Completed!</h1>
-            <p className="text-muted-foreground mb-4">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Quiz Completed!</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mb-4">
               {quizDetails?.tutorial_title}
             </p>
-            <div className="flex items-center justify-center gap-8 mb-4">
+            <div className="flex items-center justify-center gap-4 sm:gap-8 mb-4">
               <div>
-                <div className="text-4xl font-bold text-primary">
+                <div className="text-3xl sm:text-4xl font-bold text-primary">
                   {quizResult.percentage}%
                 </div>
-                <p className="text-sm text-muted-foreground">Overall Score</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Overall Score</p>
               </div>
               <div>
-                <div className="text-2xl font-semibold">
+                <div className="text-xl sm:text-2xl font-semibold">
                   {quizResult.correct_answers}/{quizResult.total_questions}
                 </div>
-                <p className="text-sm text-muted-foreground">Correct Answers</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Correct Answers</p>
               </div>
             </div>
           </motion.div>
 
           {/* Detailed Feedback */}
           {quizResult.overall_feedback && (
-            <Card className="glass border-border mb-6">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-2">Overall Feedback</h3>
-                <p className="text-muted-foreground">{quizResult.overall_feedback}</p>
+            <Card className="glass border-border mb-4 sm:mb-6">
+              <CardContent className="p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-2">Overall Feedback</h3>
+                <p className="text-sm sm:text-base text-muted-foreground">{quizResult.overall_feedback}</p>
               </CardContent>
             </Card>
           )}
 
           {/* Strengths & Areas for Improvement */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
             {quizResult.strengths && quizResult.strengths.length > 0 && (
               <Card className="glass border-border border-green-500/50">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold mb-3 text-green-600">Strengths</h3>
+                <CardContent className="p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 text-green-600">Strengths</h3>
                   <ul className="space-y-2">
                     {quizResult.strengths.map((strength: string, index: number) => (
                       <li key={index} className="text-sm flex items-start gap-2">
@@ -263,8 +265,8 @@ const Quiz = () => {
 
             {quizResult.areas_for_improvement && quizResult.areas_for_improvement.length > 0 && (
               <Card className="glass border-border border-orange-500/50">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold mb-3 text-orange-600">
+                <CardContent className="p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 text-orange-600">
                     Areas for Improvement
                   </h3>
                   <ul className="space-y-2">
@@ -282,9 +284,9 @@ const Quiz = () => {
 
           {/* Study Suggestions */}
           {quizResult.study_suggestions && quizResult.study_suggestions.length > 0 && (
-            <Card className="glass border-border mb-6">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-3">Study Suggestions</h3>
+            <Card className="glass border-border mb-4 sm:mb-6">
+              <CardContent className="p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3">Study Suggestions</h3>
                 <ul className="space-y-2">
                   {quizResult.study_suggestions.map((suggestion: string, index: number) => (
                     <li key={index} className="text-sm flex items-start gap-2">
@@ -298,9 +300,9 @@ const Quiz = () => {
           )}
 
           {/* Detailed Results */}
-          <div className="space-y-4 mb-8">
-            <h3 className="text-xl font-semibold">Question by Question Review</h3>
-            <div className="max-h-96 overflow-y-auto space-y-4">
+          <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
+            <h3 className="text-lg sm:text-xl font-semibold">Question by Question Review</h3>
+            <div className="max-h-96 overflow-y-auto space-y-3 sm:space-y-4">
               {quizResult.results?.map((result: any, index: number) => (
                 <Card
                   key={index}
@@ -308,17 +310,17 @@ const Quiz = () => {
                     result.is_correct ? "border-green-500" : "border-red-500"
                   }`}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex items-start gap-2 sm:gap-3">
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ${
+                        className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-bold flex-shrink-0 ${
                           result.is_correct ? "bg-green-500" : "bg-red-500"
                         }`}
                       >
                         {result.is_correct ? "✓" : "✗"}
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium mb-2">{result.question}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm sm:text-base font-medium mb-2">{result.question}</p>
                         <div className="space-y-2 text-sm">
                           <div>
                             <span className="font-medium text-muted-foreground">
@@ -368,16 +370,18 @@ const Quiz = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-center gap-4">
-            <Button onClick={retakeQuiz} variant="outline" className="gap-2">
+          <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
+            <Button onClick={retakeQuiz} variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
               <RotateCcw className="w-4 h-4" />
               Retake Quiz
             </Button>
             <Button
               onClick={() => navigate(-1)}
-              className="bg-gradient-to-r from-primary to-secondary"
+              size="sm"
+              className="bg-gradient-to-r from-primary to-secondary w-full sm:w-auto"
             >
-              {isStudySession ? "Back to Study Session" : "Back to Tutorial"}
+              <span className="hidden sm:inline">{isStudySession ? "Back to Study Session" : "Back to Tutorial"}</span>
+              <span className="sm:hidden">Back</span>
             </Button>
           </div>
         </div>
@@ -388,17 +392,17 @@ const Quiz = () => {
   const currentQuestion = quizQuestions[currentQuestionIndex];
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-4 sm:p-6">
       <div className="container max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <Button onClick={() => navigate(-1)} variant="ghost" className="gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
+          <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="gap-2">
             <ChevronLeft className="w-4 h-4" />
             Back
           </Button>
-          <div className="text-center flex-1">
-            <h1 className="text-2xl font-bold">Practice Test</h1>
-            <p className="text-sm text-muted-foreground">
+          <div className="text-center flex-1 w-full sm:w-auto">
+            <h1 className="text-xl sm:text-2xl font-bold">Practice Test</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">
               {quizDetails?.tutorial_title}
             </p>
           </div>
@@ -406,22 +410,23 @@ const Quiz = () => {
             <Button
               onClick={viewEvaluationResults}
               variant="outline"
-              className="gap-2"
+              size="sm"
+              className="gap-2 w-full sm:w-auto"
             >
               <CheckCircle className="w-4 h-4" />
-              View Results
+              <span className="hidden sm:inline">View Results</span>
+              <span className="sm:hidden">Results</span>
             </Button>
           )}
-          {!hasEvaluationReport && <div className="w-20" />}
         </div>
 
         {/* Progress */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs sm:text-sm text-muted-foreground">
               Question {currentQuestionIndex + 1} of {quizQuestions.length}
             </span>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs sm:text-sm text-muted-foreground">
               {Object.keys(quizAnswers).length} answered
             </span>
           </div>
@@ -436,12 +441,12 @@ const Quiz = () => {
         </div>
 
         {/* Question Navigation Dots */}
-        <div className="flex gap-2 flex-wrap mb-6 max-h-20 overflow-y-auto">
+        <div className="flex gap-2 flex-wrap mb-4 sm:mb-6 max-h-20 overflow-y-auto">
           {quizQuestions.map((_, index) => (
             <button
               key={index}
               onClick={() => goToQuestion(index)}
-              className={`w-10 h-10 rounded-full text-sm font-medium transition-colors flex-shrink-0 ${
+              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full text-xs sm:text-sm font-medium transition-colors flex-shrink-0 ${
                 index === currentQuestionIndex
                   ? "bg-primary text-primary-foreground"
                   : quizAnswers[quizQuestions[index]?.question_id]
@@ -463,9 +468,9 @@ const Quiz = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <Card className="glass border-border mb-6">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-4">
+            <Card className="glass border-border mb-4 sm:mb-6">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
                   <Badge
                     variant={
                       currentQuestion.question_type === "mcq" ? "default" : "secondary"
@@ -475,12 +480,12 @@ const Quiz = () => {
                       ? "Multiple Choice"
                       : "Descriptive"}
                   </Badge>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-xs sm:text-sm text-muted-foreground">
                     Question {currentQuestionIndex + 1}
                   </span>
                 </div>
-                <h2 className="text-xl font-semibold mb-2">{currentQuestion.question}</h2>
-                <p className="text-sm text-muted-foreground">
+                <h2 className="text-lg sm:text-xl font-semibold mb-2">{currentQuestion.question}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {currentQuestion.question_type === "mcq"
                     ? "Select the correct answer from the options below"
                     : "Type your detailed answer in the text area below"}
@@ -490,22 +495,22 @@ const Quiz = () => {
 
             {currentQuestion.question_type === "mcq" ? (
               /* MCQ Options */
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-4 sm:mb-6">
                 {currentQuestion.options?.map((option: string, optionIndex: number) => (
                   <button
                     key={optionIndex}
                     onClick={() =>
                       handleAnswerSelect(currentQuestion.question_id, optionIndex)
                     }
-                    className={`p-4 text-left rounded-lg border transition-all duration-200 hover:shadow-md ${
+                    className={`p-3 sm:p-4 text-left rounded-lg border transition-all duration-200 hover:shadow-md ${
                       Number(quizAnswers[currentQuestion.question_id]) === optionIndex
                         ? "border-primary bg-primary/10 shadow-md"
                         : "border-border hover:border-primary/50 hover:bg-muted/50"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                       <div
-                        className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 text-xs sm:text-sm ${
                           Number(quizAnswers[currentQuestion.question_id]) === optionIndex
                             ? "border-primary bg-primary text-primary-foreground"
                             : "border-muted-foreground"
@@ -523,8 +528,8 @@ const Quiz = () => {
               </div>
             ) : (
               /* Descriptive Answer */
-              <Card className="glass border-border mb-6">
-                <CardContent className="p-4">
+              <Card className="glass border-border mb-4 sm:mb-6">
+                <CardContent className="p-3 sm:p-4">
                   <Label htmlFor="descriptive-answer" className="text-sm font-medium mb-2 block">
                     Your Answer
                   </Label>
@@ -548,32 +553,37 @@ const Quiz = () => {
         )}
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <Button
             onClick={goToPreviousQuestion}
             disabled={currentQuestionIndex === 0}
             variant="outline"
+            size="sm"
+            className="flex-1 sm:flex-none"
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
-            Previous
+            <span className="hidden sm:inline">Previous</span>
+            <span className="sm:hidden">Prev</span>
           </Button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-1 sm:flex-none">
             {currentQuestionIndex === quizQuestions.length - 1 ? (
               <Button
                 onClick={submitQuiz}
                 disabled={isSubmitting || Object.keys(quizAnswers).length === 0}
-                className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
+                size="sm"
+                className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 flex-1 sm:flex-none"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Submitting...
+                    <span className="hidden sm:inline">Submitting...</span>
                   </>
                 ) : (
                   <>
                     <Trophy className="w-4 h-4 mr-2" />
-                    Submit Quiz
+                    <span className="hidden sm:inline">Submit Quiz</span>
+                    <span className="sm:hidden">Submit</span>
                   </>
                 )}
               </Button>
@@ -582,8 +592,11 @@ const Quiz = () => {
                 onClick={goToNextQuestion}
                 disabled={currentQuestionIndex === quizQuestions.length - 1}
                 variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none"
               >
-                Next
+                <span className="hidden sm:inline">Next</span>
+                <span className="sm:hidden">Next</span>
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             )}

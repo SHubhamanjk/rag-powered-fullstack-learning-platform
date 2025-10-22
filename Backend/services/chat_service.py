@@ -1,16 +1,11 @@
 import os
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from dotenv import load_dotenv
-from groq import Groq
 from bson import ObjectId
 from utils.db import get_chat_collection, get_user_collection
 from utils.timezone import get_current_time
-from prompts import STUDY_CHAT_SYSTEM_PROMPT
-
-load_dotenv()
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = os.getenv("GROQ_MODEL", "gemma-7b-it")
+from utils.llm import groq_chat_completion
+from prompts import STUDY_CHAT_SYSTEM_PROMPT, TEMPORARY_CHAT_PROMPT
 
 def generate_title(message: str) -> str:
     """Generate title from first 5 words of message"""
@@ -77,17 +72,13 @@ async def generate_reply(chat_id: Optional[str], message: str, email: str) -> tu
     # Get chat context (last 20 user + 20 assistant messages)
     context_messages = get_chat_context(chat_doc["messages"], limit_per_role=20)
     
-    # Build messages for Groq
-    groq_messages = [{"role": "system", "content": STUDY_CHAT_SYSTEM_PROMPT}]
-    groq_messages += context_messages
-    groq_messages.append({"role": "user", "content": message})
+    # Build messages for LLM
+    messages = [{"role": "system", "content": STUDY_CHAT_SYSTEM_PROMPT}]
+    messages += context_messages
+    messages.append({"role": "user", "content": message})
     
-    # Call Groq API
-    res = groq_client.chat.completions.create(
-        messages=groq_messages,
-        model=MODEL,
-    )
-    reply = res.choices[0].message.content
+    # Call Groq API via centralized LLM utility
+    reply = groq_chat_completion(messages=messages, temperature=0.7)
     
     # Prepare new messages
     current_time = get_current_time()
@@ -175,3 +166,28 @@ async def delete_chat(chat_id: str, email: str) -> bool:
     
     result = chat_coll.delete_one({"_id": ObjectId(chat_id)})
     return result.deleted_count > 0
+
+async def generate_temporary_reply(
+    conversation_history: List[Dict[str, str]], 
+    message: str
+) -> str:
+    """
+    Generate AI reply for temporary chat without saving to database.
+    
+    Args:
+        conversation_history: List of previous messages [{"role": "user/assistant", "content": "..."}]
+        message: Current user message
+    
+    Returns:
+        AI response string
+    """
+    # Build messages for LLM (keep last 40 messages for context = 20 exchanges)
+    recent_history = conversation_history[-40:] if len(conversation_history) > 40 else conversation_history
+    
+    messages = [{"role": "system", "content": TEMPORARY_CHAT_PROMPT}]
+    messages += recent_history
+    messages.append({"role": "user", "content": message})
+    
+    # Call Groq API via centralized LLM utility
+    reply = groq_chat_completion(messages=messages, temperature=0.7)
+    return reply

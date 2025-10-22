@@ -7,6 +7,7 @@ from typing import Optional, List
 
 class CreateTodoRequest(BaseModel):
     task: str
+    category: str  # Category for grouping todos (e.g., "Work", "Personal", "Study")
     date: Optional[str] = None  # If not provided, use today's date
     description: Optional[str] = None
 
@@ -15,6 +16,7 @@ class CreateTodoRequest(BaseModel):
             "examples": [
                 {
                     "task": "Complete project documentation",
+                    "category": "Work",
                     "date": "2024-01-20",
                     "description": "Write comprehensive API docs and user guide"
                 }
@@ -44,6 +46,7 @@ class CreateTodoResponse(BaseModel):
 class UpdateTodoRequest(BaseModel):
     todo_id: str
     task: Optional[str] = None
+    category: Optional[str] = None  # Updated category
     date: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None  # pending, in_progress, or done
@@ -54,6 +57,7 @@ class UpdateTodoRequest(BaseModel):
                 {
                     "todo_id": "todo_abc123",
                     "task": "Updated task name",
+                    "category": "Work",
                     "date": "2024-01-25",
                     "description": "Updated description",
                     "status": "in_progress"
@@ -104,6 +108,7 @@ class TodoSchema(BaseModel):
     todo_id: str
     email: EmailStr
     task: str
+    category: str
     description: Optional[str]
     status: str
     date: str

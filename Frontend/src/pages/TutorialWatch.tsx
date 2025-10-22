@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   Save,
   X,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +84,9 @@ const TutorialWatch = () => {
 
   // Active tab
   const [activeTab, setActiveTab] = useState<"chat" | "notes">("notes");
+  
+  // Mobile sidebar
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Video player ref
   const playerRef = useRef<any>(null);
@@ -100,7 +104,7 @@ const TutorialWatch = () => {
       firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
 
       (window as any).onYouTubeIframeAPIReady = () => {
-        console.log("YouTube IFrame API loaded");
+        // YouTube IFrame API loaded
       };
     }
   }, []);
@@ -207,7 +211,7 @@ const TutorialWatch = () => {
       const response = await tutorialService.getMyTutorials();
       setTutorials(response.tutorials);
     } catch (error: any) {
-      console.error("Failed to fetch tutorials:", error);
+      // Failed to fetch tutorials
     } finally {
       setIsFetching(false);
     }
@@ -236,7 +240,18 @@ const TutorialWatch = () => {
 
       setTutorialLink("");
       setShowCreateModal(false);
-      await fetchTutorials();
+      
+      // Fetch updated tutorials list
+      const tutorialsResponse = await tutorialService.getMyTutorials();
+      setTutorials(tutorialsResponse.tutorials);
+      
+      // Automatically select and open the newly created tutorial
+      const newTutorial = tutorialsResponse.tutorials.find(
+        t => t.tutorial_id === response.tutorial_id
+      );
+      if (newTutorial) {
+        setSelectedTutorial(newTutorial);
+      }
     } catch (error: any) {
       toast({
         title: "Failed to Create Tutorial",
@@ -276,7 +291,7 @@ const TutorialWatch = () => {
       const response = await tutorialService.getNotes(selectedTutorial.tutorial_id);
       setNotes(response.notes);
     } catch (error: any) {
-      console.error("Failed to fetch notes:", error);
+      // Failed to fetch notes
     }
   };
 
@@ -285,16 +300,11 @@ const TutorialWatch = () => {
 
     try {
       const response = await tutorialService.getChatHistory(selectedTutorial.tutorial_id);
-      console.log("Chat history response:", response);
       if (response.chat_history && response.chat_history.length > 0) {
-        console.log("Setting chat messages:", response.chat_history);
         setChatMessages(response.chat_history);
-      } else {
-        console.log("No chat history found or empty array");
       }
     } catch (error: any) {
       // No chat history yet, that's okay
-      console.log("Error loading chat history:", error);
     }
   };
 
@@ -626,7 +636,7 @@ const TutorialWatch = () => {
       const response = await tutorialService.getMindmaps(selectedTutorial.tutorial_id);
       setMindmaps(response.mindmaps);
     } catch (error: any) {
-      console.error("Failed to fetch mindmaps:", error);
+      // Failed to fetch mindmaps
     }
   };
 
@@ -664,7 +674,7 @@ const TutorialWatch = () => {
       const response = await tutorialService.getTutorialQuizzes(selectedTutorial.tutorial_id);
       setQuizzes(response.quizzes);
     } catch (error: any) {
-      console.error("Failed to fetch quizzes:", error);
+      // Failed to fetch quizzes
     }
   };
 
@@ -763,20 +773,21 @@ const TutorialWatch = () => {
           ))}
         </div>
 
-        <div className="container max-w-6xl mx-auto space-y-6 relative z-10">
+        <div className="container max-w-6xl mx-auto space-y-4 sm:space-y-6 relative z-10 px-4 sm:px-6">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between"
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
           >
-            <div>
-              <h1 className="text-3xl font-bold gradient-text mb-2">Learning Hub</h1>
-              <p className="text-muted-foreground">Watch tutorials and take smart notes</p>
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-1 sm:mb-2">Learning Hub</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">Watch tutorials and take smart notes</p>
             </div>
             <Button
               onClick={() => setShowCreateModal(true)}
-              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 w-full sm:w-auto"
+              size="sm"
             >
               <Plus className="w-4 h-4 mr-2" />
               New Tutorial
@@ -845,7 +856,7 @@ const TutorialWatch = () => {
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : tutorials.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {tutorials.map((tutorial) => (
                   <motion.div
                     key={tutorial.tutorial_id}
@@ -854,12 +865,12 @@ const TutorialWatch = () => {
                     className="cursor-pointer"
                   >
                     <Card className="glass border-border hover:border-primary/50 transition-all">
-                      <CardContent className="p-4">
-                        <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg mb-3 flex items-center justify-center">
-                          <Play className="w-12 h-12 text-primary" />
+                      <CardContent className="p-3 sm:p-4">
+                        <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg mb-2 sm:mb-3 flex items-center justify-center">
+                          <Play className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
                         </div>
-                        <h3 className="font-semibold mb-2 line-clamp-2">{tutorial.title}</h3>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <h3 className="text-sm sm:text-base font-semibold mb-1 sm:mb-2 line-clamp-2">{tutorial.title}</h3>
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
                           <FileText className="w-3 h-3" />
                           <span>{tutorial.notes_count} notes</span>
                           <Clock className="w-3 h-3 ml-2" />
@@ -872,10 +883,10 @@ const TutorialWatch = () => {
               </div>
             ) : (
               <Card className="glass border-border">
-                <CardContent className="p-12 text-center">
-                  <Play className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-lg font-semibold mb-2">No tutorials yet</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
+                <CardContent className="p-8 sm:p-12 text-center">
+                  <Play className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-base sm:text-lg font-semibold mb-2">No tutorials yet</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4">
                     Start your learning journey by adding a tutorial!
                   </p>
                   <Button
@@ -896,7 +907,7 @@ const TutorialWatch = () => {
 
   // Tutorial Watch View
   return (
-    <div className="h-[calc(100vh-4rem)] flex relative overflow-hidden">
+    <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row relative overflow-hidden">
       {/* Futuristic Background Effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <motion.div
@@ -948,10 +959,19 @@ const TutorialWatch = () => {
           />
         ))}
       </div>
+      {/* Mobile Sidebar Toggle Button */}
+      <Button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        size="icon"
+        className="fixed bottom-4 right-4 lg:hidden z-30 h-12 w-12 rounded-full bg-gradient-to-r from-primary to-secondary shadow-lg"
+      >
+        {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </Button>
+
       {/* Main Video Area */}
-      <div className="flex-[0.7] flex flex-col bg-black/50">
+      <div className="flex-1 lg:flex-[0.7] flex flex-col bg-black/50">
         {/* Back Button */}
-        <div className="glass border-b border-border p-4">
+        <div className="glass border-b border-border p-2 sm:p-3 md:p-4">
           <Button
             onClick={() => {
               setSelectedTutorial(null);
@@ -962,10 +982,11 @@ const TutorialWatch = () => {
               setCurrentVideoTime(0);
             }}
             variant="ghost"
+            size="sm"
             className="gap-2"
           >
-            <ChevronLeft className="w-4 h-4" />
-            Back to Tutorials
+            <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="text-xs sm:text-sm">Back to Tutorials</span>
           </Button>
         </div>
 
@@ -975,30 +996,34 @@ const TutorialWatch = () => {
         </div>
 
         {/* Video Info & Actions */}
-        <div className="glass border-t border-border p-4 space-y-4">
-          <h2 className="text-lg font-semibold">{selectedTutorial.title}</h2>
+        <div className="glass border-t border-border p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
+          <h2 className="text-sm sm:text-base md:text-lg font-semibold line-clamp-2">{selectedTutorial.title}</h2>
           
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             <Button
               onClick={() => setShowQuizModal(true)}
               variant="outline"
-              className="gap-2"
+              size="sm"
+              className="gap-1 sm:gap-2 text-xs sm:text-sm"
             >
-              <Trophy className="w-4 h-4" />
-              Practice Test
+              <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Practice Test</span>
+              <span className="sm:hidden">Quiz</span>
             </Button>
             <Button
               onClick={generateMindmap}
               variant="outline"
-              className="gap-2"
+              size="sm"
+              className="gap-1 sm:gap-2 text-xs sm:text-sm"
               disabled={isGeneratingMindmap}
             >
               {isGeneratingMindmap ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
               ) : (
-                <Brain className="w-4 h-4" />
+                <Brain className="w-3 h-3 sm:w-4 sm:h-4" />
               )}
-              Visual Maps
+              <span className="hidden sm:inline">Visual Maps</span>
+              <span className="sm:hidden">Maps</span>
             </Button>
             {quizzes.length > 0 && (
               <Badge 
@@ -1014,29 +1039,52 @@ const TutorialWatch = () => {
         </div>
       </div>
 
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-20 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <div className="flex-[0.3] glass border-l border-border flex flex-col overflow-hidden">
+      <motion.div
+        initial={{ x: 300, opacity: 0 }}
+        animate={{ 
+          x: sidebarOpen || window.innerWidth >= 1024 ? 0 : 300,
+          opacity: sidebarOpen || window.innerWidth >= 1024 ? 1 : 0 
+        }}
+        transition={{ duration: 0.3 }}
+        className={`w-full lg:flex-[0.3] glass border-t lg:border-t-0 lg:border-l border-border flex flex-col overflow-hidden ${
+          sidebarOpen ? "fixed inset-y-0 right-0 z-30 flex max-w-sm" : "hidden lg:flex"
+        }`}
+      >
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col h-full">
-          <TabsList className="grid w-full grid-cols-2 m-4 flex-shrink-0">
-            <TabsTrigger value="notes" className="gap-2">
-              <FileText className="w-4 h-4" />
+          <TabsList className="grid w-full grid-cols-2 m-2 sm:m-3 md:m-4 flex-shrink-0">
+            <TabsTrigger value="notes" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+              <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
               Notes
             </TabsTrigger>
-            <TabsTrigger value="chat" className="gap-2">
-              <MessageSquare className="w-4 h-4" />
+            <TabsTrigger value="chat" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+              <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
               AI Chat
             </TabsTrigger>
           </TabsList>
 
           {/* Notes Tab */}
           <TabsContent value="notes" className="flex-2 flex flex-col m-0 p-0 overflow-hidden data-[state=active]:flex">
-            <div className="flex-1 flex flex-col p-4 overflow-hidden ">
+            <div className="flex-1 flex flex-col p-2 sm:p-3 md:p-4 overflow-hidden ">
               {/* Fixed Header Section */}
               <div className="space-y-4 flex-shrink-0">
               {/* Add Note Form */}
               <Card className="glass border-border">
-                <CardContent className="p-3 space-y-2 ">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <CardContent className="p-2 sm:p-3 space-y-2 ">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground mb-1">
                     <Clock className="w-3 h-3" />
                     <span>Current time: {formatTime(currentVideoTime)}</span>
                   </div>
@@ -1226,7 +1274,7 @@ const TutorialWatch = () => {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+      </motion.div>
 
       {/* Quiz Generation Modal */}
       <AnimatePresence>

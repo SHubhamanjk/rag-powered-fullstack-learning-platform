@@ -90,7 +90,6 @@ Reply to: {request.contact}
         )
         
     except Exception as e:
-        print(f"Error sending contact form email: {e}")
         raise HTTPException(
             status_code=500,
             detail="Failed to submit contact form. Please try again later."

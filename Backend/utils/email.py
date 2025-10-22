@@ -15,7 +15,6 @@ async def send_email(recipient: str, subject: str, body: str, html_body: str = N
         gmail_password = os.getenv("GMAIL_APP_PASSWORD")
         
         if not from_email or not gmail_password:
-            print("Email configuration missing in environment variables")
             return False
         
         # 1. Create email message
@@ -38,11 +37,9 @@ async def send_email(recipient: str, subject: str, body: str, html_body: str = N
             server.login(from_email, gmail_password)
             server.send_message(msg)
         
-        print(f"Email sent successfully to {recipient}")
         return True
         
     except Exception as e:
-        print(f"Failed to send email: {e}")
         return False
 
 async def send_otp_email(recipient: str, otp: str) -> bool:

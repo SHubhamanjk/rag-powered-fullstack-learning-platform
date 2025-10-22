@@ -49,5 +49,19 @@ export interface DeleteChatResponse {
   message: string;
 }
 
+export interface TemporaryChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface TemporaryChatRequest {
+  message: string;
+  conversation_history: TemporaryChatMessage[];
+}
+
+export interface TemporaryChatResponse {
+  response: string;
+}
+
 export type ChatMode = "study" | "friend";
 

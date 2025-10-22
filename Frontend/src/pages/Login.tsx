@@ -55,7 +55,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8 relative overflow-hidden">
       {/* Futuristic Background Effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <motion.div
@@ -140,12 +140,12 @@ const Login = () => {
                 }}
               />
             </motion.div>
-            <span className="text-3xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
+            <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
               Medha.ai
             </span>
           </motion.div>
           <motion.h1 
-            className="text-4xl font-bold mb-3"
+            className="text-3xl sm:text-4xl font-bold mb-3"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
@@ -153,7 +153,7 @@ const Login = () => {
             Welcome Back
           </motion.h1>
           <motion.p 
-            className="text-muted-foreground text-lg"
+            className="text-muted-foreground text-base sm:text-lg"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
@@ -163,7 +163,7 @@ const Login = () => {
         </div>
 
         <motion.div 
-          className="glass-strong rounded-3xl p-8 border-2 border-border/50 hover:border-primary/30 transition-all shadow-2xl backdrop-blur-2xl relative overflow-hidden"
+          className="glass-strong rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-border/50 hover:border-primary/30 transition-all shadow-2xl backdrop-blur-2xl relative overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}

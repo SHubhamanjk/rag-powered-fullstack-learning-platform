@@ -4,12 +4,11 @@ import requests
 import json
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from dotenv import load_dotenv
-from groq import Groq
 from youtube_transcript_api import YouTubeTranscriptApi
 from utils.db import get_tutorial_support_collection
 from utils.timezone import get_current_time
 from utils.cache import cache_response, invalidate_cache
+from utils.llm import gemini_chat_completion, gemini_generate_content
 from prompts import (
     PRETTIFY_NOTES_PROMPT, 
     DETAILED_NOTES_PROMPT, 
@@ -22,10 +21,6 @@ from prompts import (
 from graphviz import Digraph
 import base64
 
-load_dotenv()
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = os.getenv("GROQ_MODEL")
-
 def extract_title_from_link(tutorial_link: str) -> str:
     """Extract title from YouTube link using oEmbed API"""
     if "youtube.com" in tutorial_link or "youtu.be" in tutorial_link:
@@ -37,13 +32,10 @@ def extract_title_from_link(tutorial_link: str) -> str:
             if response.status_code == 200:
                 data = response.json()
                 title = data.get('title', 'Untitled Tutorial')
-                print(f"Fetched YouTube title: {title}")
                 return title
             else:
-                print(f"oEmbed request failed with status {response.status_code}")
                 raise Exception("oEmbed request failed")
         except Exception as e:
-            print(f"Error fetching YouTube title: {e}")
             # Fallback to video ID
             if "v=" in tutorial_link:
                 video_id = tutorial_link.split("v=")[1].split("&")[0]
@@ -239,17 +231,13 @@ async def prettify_notes(tutorial_id: str) -> Dict[str, Any]:
         f"DO NOT include any timestamps in your output."
     )
     
-    response = groq_client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": PRETTIFY_NOTES_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ],
+    # Call Gemini via centralized LLM utility
+    prettified_notes = gemini_generate_content(
+        prompt=user_prompt,
+        system_instruction=PRETTIFY_NOTES_PROMPT,
         temperature=0.3,
         max_tokens=3000
     )
-    
-    prettified_notes = response.choices[0].message.content.strip()
     
     return {
         "tutorial_id": tutorial["tutorial_id"],
@@ -289,17 +277,13 @@ async def generate_detailed_notes(tutorial_id: str) -> Dict[str, Any]:
         f"DO NOT include any timestamps in your output."
     )
     
-    response = groq_client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": DETAILED_NOTES_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ],
+    # Call Gemini via centralized LLM utility
+    detailed_notes = gemini_generate_content(
+        prompt=user_prompt,
+        system_instruction=DETAILED_NOTES_PROMPT,
         temperature=0.4,
         max_tokens=5000
     )
-    
-    detailed_notes = response.choices[0].message.content.strip()
     
     return {
         "tutorial_id": tutorial["tutorial_id"],
@@ -382,15 +366,12 @@ async def tutorial_ai_chat(tutorial_id: str, question: str) -> Dict[str, Any]:
     # Add current question
     messages.append({"role": "user", "content": question})
     
-    # Call LLM
-    response = groq_client.chat.completions.create(
-        model=MODEL,
+    # Call Gemini via centralized LLM utility (Chat requires messages format)
+    answer = gemini_chat_completion(
         messages=messages,
         temperature=0.6,
         max_tokens=400
     )
-    
-    answer = response.choices[0].message.content.strip()
     
     # Save to chat history
     chat_entry = {
@@ -429,17 +410,26 @@ async def get_tutorial_chat_history(tutorial_id: str) -> Dict[str, Any]:
     # Convert to response format with role-based messages
     chat_messages = []
     for chat_entry in chat_history:
+        # Skip entries with None values
+        question = chat_entry.get("question")
+        answer = chat_entry.get("answer")
+        
+        if not question or not answer:
+            continue
+        
+        timestamp = chat_entry.get("timestamp", get_current_time().isoformat())
+        
         # Add user message
         chat_messages.append({
             "role": "user",
-            "content": chat_entry["question"],
-            "timestamp": chat_entry.get("timestamp", get_current_time().isoformat())
+            "content": question,
+            "timestamp": timestamp
         })
         # Add assistant message
         chat_messages.append({
             "role": "assistant",
-            "content": chat_entry["answer"],
-            "timestamp": chat_entry.get("timestamp", get_current_time().isoformat())
+            "content": answer,
+            "timestamp": timestamp
         })
     
     return {
@@ -492,7 +482,6 @@ def get_transcript_by_timerange(tutorial_link: str, from_timestamp: str, to_time
                     transcript = available_transcripts.find_transcript([lang_code])
                     transcript_list = transcript.fetch()
                     used_language = lang_code
-                    print(f"Successfully fetched transcript in language: {lang_code}")
                     break
                 except:
                     continue
@@ -503,7 +492,6 @@ def get_transcript_by_timerange(tutorial_link: str, from_timestamp: str, to_time
                     transcript = available_transcripts.find_manually_created_transcript()
                     transcript_list = transcript.fetch()
                     used_language = transcript.language_code
-                    print(f"Using manually created transcript in: {used_language}")
                 except:
                     pass
             
@@ -513,26 +501,22 @@ def get_transcript_by_timerange(tutorial_link: str, from_timestamp: str, to_time
                     transcript = available_transcripts.find_generated_transcript()
                     transcript_list = transcript.fetch()
                     used_language = transcript.language_code
-                    print(f"Using auto-generated transcript in: {used_language}")
                 except:
                     pass
                     
         except Exception as e:
-            print(f"Error listing transcripts: {e}")
+            pass
         
         # If all else fails, try getting transcript without specifying language
         if not transcript_list:
             try:
                 transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
                 used_language = "default"
-                print("Using default transcript")
             except Exception as e:
-                print(f"Error getting default transcript: {e}")
                 # Don't raise error here, we'll handle it in the calling function
                 transcript_list = None
         
         if not transcript_list:
-            print("No transcript available for this video")
             return None
         
         # Convert timestamps to seconds
@@ -556,11 +540,9 @@ def get_transcript_by_timerange(tutorial_link: str, from_timestamp: str, to_time
         if not transcript_text:
             raise ValueError("No transcript found for the specified time range")
         
-        print(f"Extracted {len(filtered_transcript)} transcript segments using language: {used_language}")
         return transcript_text
         
     except Exception as e:
-        print(f"Error extracting transcript: {e}")
         error_msg = str(e)
         if "No transcripts" in error_msg or "Could not retrieve" in error_msg:
             raise ValueError(
@@ -616,33 +598,13 @@ Generate questions that would test a student's understanding of the fundamental 
 Make the questions educational and comprehensive, covering both theoretical and practical aspects.
 """
     
-    # Call LLM to generate quiz
-    try:
-        response = groq_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": QUIZ_GENERATION_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.3,
-            max_tokens=4000,
-            response_format={"type": "json_object"}
-        )
-    except Exception as e:
-        # If response_format not supported, try without it
-        print(f"Trying without response_format due to: {e}")
-        response = groq_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": QUIZ_GENERATION_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.3,
-            max_tokens=4000
-        )
-    
-    # Parse response
-    quiz_json = response.choices[0].message.content.strip()
+    # Call Gemini via centralized LLM utility
+    quiz_json = gemini_generate_content(
+        prompt=user_prompt,
+        system_instruction=QUIZ_GENERATION_PROMPT,
+        temperature=0.3,
+        max_tokens=4000
+    )
     
     # Try to extract JSON from response
     try:
@@ -654,9 +616,6 @@ Make the questions educational and comprehensive, covering both theoretical and 
         
         quiz_data = json.loads(quiz_json)
     except json.JSONDecodeError as e:
-        print(f"JSON decode error: {e}")
-        print(f"Response received: {quiz_json[:500]}")  # Print first 500 chars for debugging
-        
         # Try to find JSON in the response
         start = quiz_json.find("{")
         end = quiz_json.rfind("}") + 1
@@ -821,18 +780,13 @@ Evaluate the following descriptive answers:
 Provide scores and feedback for each question, plus overall analysis.
 """
     
-    response = groq_client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": QUIZ_EVALUATION_PROMPT},
-            {"role": "user", "content": llm_eval_prompt}
-        ],
+    # Call Gemini via centralized LLM utility
+    eval_json = gemini_generate_content(
+        prompt=llm_eval_prompt,
+        system_instruction=QUIZ_EVALUATION_PROMPT,
         temperature=0.3,
         max_tokens=3000
     )
-    
-    # Parse LLM evaluation
-    eval_json = response.choices[0].message.content.strip()
     
     try:
         if "```json" in eval_json:
@@ -1086,31 +1040,13 @@ NOTES:
 Analyze these notes and determine the optimal number of mindmaps (1-5) to visualize the content effectively.
 """
     
-    try:
-        response = groq_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": MINDMAP_ANALYSIS_PROMPT},
-                {"role": "user", "content": analysis_prompt}
-            ],
-            temperature=0.3,
-            max_tokens=2000,
-            response_format={"type": "json_object"}
-        )
-    except Exception:
-        # Fallback without response_format
-        response = groq_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": MINDMAP_ANALYSIS_PROMPT},
-                {"role": "user", "content": analysis_prompt}
-            ],
-            temperature=0.3,
-            max_tokens=2000
-        )
-    
-    # Parse analysis response
-    analysis_json = response.choices[0].message.content.strip()
+    # Call Gemini via centralized LLM utility
+    analysis_json = gemini_generate_content(
+        prompt=analysis_prompt,
+        system_instruction=MINDMAP_ANALYSIS_PROMPT,
+        temperature=0.3,
+        max_tokens=2000
+    )
     
     try:
         # Remove markdown code blocks if present
@@ -1121,8 +1057,6 @@ Analyze these notes and determine the optimal number of mindmaps (1-5) to visual
         
         analysis_data = json.loads(analysis_json)
     except json.JSONDecodeError as e:
-        print(f"JSON decode error: {e}")
-        print(f"Response received: {analysis_json[:500]}")
         raise ValueError(f"Failed to parse analysis JSON: {str(e)}")
     
     # Step 2: Generate each mindmap
@@ -1166,31 +1100,16 @@ Create a detailed mindmap structure for this specific topic based on the notes p
 Focus specifically on the concepts and details related to: {focus_area}
 """
         
+        # Call Gemini via centralized LLM utility
         try:
-            response = groq_client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": MINDMAP_GENERATION_PROMPT},
-                    {"role": "user", "content": generation_prompt}
-                ],
-                temperature=0.3,
-                max_tokens=3000,
-                response_format={"type": "json_object"}
-            )
-        except Exception:
-            # Fallback without response_format
-            response = groq_client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": MINDMAP_GENERATION_PROMPT},
-                    {"role": "user", "content": generation_prompt}
-                ],
+            mindmap_json = gemini_generate_content(
+                prompt=generation_prompt,
+                system_instruction=MINDMAP_GENERATION_PROMPT,
                 temperature=0.3,
                 max_tokens=3000
             )
-        
-        # Parse mindmap JSON
-        mindmap_json = response.choices[0].message.content.strip()
+        except Exception:
+            continue  # Skip this mindmap if generation fails
         
         try:
             # Remove markdown code blocks if present
@@ -1203,19 +1122,15 @@ Focus specifically on the concepts and details related to: {focus_area}
             
             # Validate structure has required fields
             if not isinstance(mindmap_structure, dict):
-                print(f"Invalid mindmap structure for topic {idx}")
                 continue
                 
         except (json.JSONDecodeError, IndexError, AttributeError) as e:
-            print(f"Failed to parse mindmap JSON for topic {idx}: {e}")
-            print(f"Response received: {mindmap_json[:500]}")
             continue  # Skip this mindmap if parsing fails
         
         # Render mindmap to base64 image
         try:
             image_b64 = render_mindmap_image(mindmap_structure)
         except Exception as e:
-            print(f"Failed to render mindmap for topic {idx}: {e}")
             continue  # Skip if rendering fails
         
         # Create mindmap entry

@@ -12,6 +12,7 @@ class Todo(BaseModel):
     email: EmailStr
     task: str
     description: Optional[str] = None
+    category: str  # Category for grouping todos
     status: str  # "pending", "in_progress", "done"
     date: str  # Target date for the todo
     chat_history: List[TodoMessage] = []

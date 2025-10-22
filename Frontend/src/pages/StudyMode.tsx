@@ -16,6 +16,7 @@ import {
   Trash2,
   ChevronRight,
   Pencil,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ const StudyMode = () => {
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Create session modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -131,7 +133,7 @@ const StudyMode = () => {
       const response = await studySessionService.getSessionDetails(sessionId);
       setChatMessages(response.chat_history || []);
     } catch (error: any) {
-      console.error("Failed to load session details:", error);
+      // Failed to load session details
     }
   };
 
@@ -161,7 +163,7 @@ const StudyMode = () => {
 
       return fullText;
     } catch (error: any) {
-      console.error("PDF extraction error:", error);
+      // PDF extraction error
       
       // More specific error messages
       if (error.message?.includes("Invalid PDF")) {
@@ -374,7 +376,7 @@ const StudyMode = () => {
       const response = await studySessionService.getSessionQuizzes(selectedSession.session_id);
       setQuizzes(response.quizzes || []);
     } catch (error: any) {
-      console.error("Failed to load quizzes:", error);
+      // Failed to load quizzes
     }
   };
 
@@ -385,7 +387,7 @@ const StudyMode = () => {
       const response = await studySessionService.getSessionMindmaps(selectedSession.session_id);
       setMindmaps(response.mindmaps || []);
     } catch (error: any) {
-      console.error("Failed to load mindmaps:", error);
+      // Failed to load mindmaps
     }
   };
 
@@ -491,6 +493,15 @@ const StudyMode = () => {
 
   return (
     <div className="h-[calc(100vh-4rem)] flex relative overflow-hidden">
+      {/* Mobile Sidebar Toggle Button */}
+      <Button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        size="icon"
+        className="fixed bottom-4 left-4 lg:hidden z-30 h-12 w-12 rounded-full bg-gradient-to-r from-primary to-secondary shadow-lg"
+      >
+        {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </Button>
+
       {/* Futuristic Background Effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <motion.div
@@ -543,12 +554,30 @@ const StudyMode = () => {
         ))}
       </div>
 
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-20 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar - Sessions List */}
       <motion.aside
         initial={{ x: -300, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="w-80 border-r border-border/50 backdrop-blur-xl bg-gradient-to-b from-primary/5 to-secondary/5 hidden lg:flex flex-col relative z-10"
+        animate={{ 
+          x: sidebarOpen || window.innerWidth >= 1024 ? 0 : -300,
+          opacity: sidebarOpen || window.innerWidth >= 1024 ? 1 : 0 
+        }}
+        transition={{ duration: 0.3 }}
+        className={`w-72 sm:w-80 border-r border-border/50 backdrop-blur-xl bg-gradient-to-b from-primary/5 to-secondary/5 flex-col relative z-30 ${
+          sidebarOpen ? "fixed inset-y-0 left-0 flex lg:relative" : "hidden lg:flex"
+        }`}
       >
         <div className="p-4 border-b border-border">
           <Button
@@ -581,6 +610,7 @@ const StudyMode = () => {
                   onClick={() => {
                     setSelectedSession(session);
                     loadSessionDetails(session.session_id);
+                    setSidebarOpen(false);
                   }}
                   className={`p-3 rounded-lg cursor-pointer border transition-all ${
                     selectedSession?.session_id === session.session_id
@@ -694,24 +724,25 @@ const StudyMode = () => {
         {selectedSession ? (
           <>
           {/* Header */}
-            <div className="p-4 border-b border-border glass">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">{selectedSession.session_name}</h2>
-                  <p className="text-sm text-muted-foreground">
+            <div className="p-3 sm:p-4 border-b border-border glass">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg sm:text-xl font-bold truncate">{selectedSession.session_name}</h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Grade {selectedSession.grade}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <Button
                     onClick={() => {
                       loadQuizzes();
                       setShowQuizzes(true);
                     }}
-                    className="gap-2"
+                    size="sm"
+                    className="gap-2 flex-1 sm:flex-none"
                   >
                     <FileText className="w-4 h-4" />
-                    Quizzes
+                    <span className="hidden sm:inline">Quizzes</span>
                   </Button>
                   <Button
                     onClick={() => {
@@ -719,25 +750,26 @@ const StudyMode = () => {
                       setShowMindmapsList(true);
                     }}
                     variant="outline"
-                    className="gap-2"
+                    size="sm"
+                    className="gap-2 flex-1 sm:flex-none"
                   >
                     <Brain className="w-4 h-4" />
-                    Mindmaps
+                    <span className="hidden sm:inline">Mindmaps</span>
                   </Button>
                 </div>
               </div>
             </div>
 
             {/* Chat Messages */}
-            <ScrollArea className="flex-1 p-4">
-              <div className="max-w-4xl mx-auto space-y-4">
+            <ScrollArea className="flex-1 p-3 sm:p-4">
+              <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
                 {chatMessages.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-20 h-20 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center mx-auto mb-4 opacity-80">
-                      <MessageSquare className="w-10 h-10 text-white" />
+                  <div className="text-center py-8 sm:py-12 px-4">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center mx-auto mb-4 opacity-80">
+                      <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">Ready to Learn!</h3>
-                    <p className="text-muted-foreground mb-6">
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2">Ready to Learn!</h3>
+                    <p className="text-sm sm:text-base text-muted-foreground mb-6">
                       Ask anything about your study materials, syllabus, or PYQs. Get instant answers based on your uploaded content!
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
@@ -777,7 +809,7 @@ const StudyMode = () => {
                       }`}
                     >
                       <div
-                        className={`max-w-[80%] rounded-lg p-4 ${
+                        className={`max-w-[85%] sm:max-w-[80%] rounded-lg p-3 sm:p-4 ${
                           msg.role === "user"
                             ? "bg-primary text-primary-foreground"
                             : "bg-card border border-border"
@@ -811,7 +843,7 @@ const StudyMode = () => {
             </ScrollArea>
 
             {/* Chat Input */}
-            <div className="p-4 border-t border-border glass">
+            <div className="p-3 sm:p-4 border-t border-border glass">
               <div className="max-w-4xl mx-auto flex gap-2">
                 <Input
                   ref={chatInputRef}
@@ -824,13 +856,14 @@ const StudyMode = () => {
                     }
                   }}
                   placeholder="Ask a question about your study materials..."
-                  className="flex-1"
+                  className="flex-1 text-sm sm:text-base"
                   disabled={isChatLoading}
                 />
                 <Button
                   onClick={sendChatMessage}
                   disabled={!chatInput.trim() || isChatLoading}
                   size="icon"
+                  className="h-10 w-10 sm:h-10 sm:w-10"
                 >
                   <Send className="w-4 h-4" />
                 </Button>
@@ -838,11 +871,11 @@ const StudyMode = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center px-4">
             <div className="text-center">
-              <Book className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-xl font-semibold mb-2">No Session Selected</h3>
-              <p className="text-muted-foreground mb-4">
+              <Book className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">No Session Selected</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4">
                 Select a study session or create a new one to get started
               </p>
               <Button

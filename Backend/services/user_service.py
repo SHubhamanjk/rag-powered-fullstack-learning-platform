@@ -192,7 +192,6 @@ async def initiate_password_reset(email: str) -> Dict[str, Any]:
             "email": email
         }
     except Exception as e:
-        print(f"Error sending OTP: {e}")
         return {
             "message": "Failed to send OTP. Please try again.",
             "email": email

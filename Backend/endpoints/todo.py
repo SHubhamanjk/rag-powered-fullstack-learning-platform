@@ -32,6 +32,7 @@ async def create_todo_endpoint(
     Create a new todo.
     
     - **task**: Todo task name
+    - **category**: Category for grouping todos
     - **date**: Target date (optional, defaults to today)
     - **description**: Optional description
     
@@ -42,6 +43,7 @@ async def create_todo_endpoint(
         result = await create_todo(
             email=current_user,
             task=req.task,
+            category=req.category,
             target_date=req.date,
             description=req.description
         )
@@ -59,6 +61,7 @@ async def update_todo_endpoint(
     
     - **todo_id**: Todo ID
     - **task**: Updated task (optional)
+    - **category**: Updated category (optional)
     - **date**: Updated target date (optional)
     - **description**: Updated description (optional)
     - **status**: Updated status - pending, in_progress, or done (optional)
@@ -67,6 +70,7 @@ async def update_todo_endpoint(
         result = await update_todo(
             todo_id=req.todo_id,
             task=req.task,
+            category=req.category,
             target_date=req.date,
             description=req.description,
             status=req.status

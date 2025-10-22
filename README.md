@@ -23,7 +23,8 @@ SMTP_FROM_NAME=Company Name
 GMAIL_APP_PASSWORD=app_password
 JWT_SECRET_KEY=secret_key
 HUGGINGFACE_HUB_TOKEN=huggingface_token
-
+GEMINI_API_KEY=your_actual_gemini_api_key
+GEMINI_MODEL=example_model
 ```
 
 🧱 Create a virtual environment using **uv** (if uv is not installed, run `pip install uv` first):

@@ -16,7 +16,6 @@ export const initGA = () => {
   
   // Only initialize GA if measurement ID is provided and not in development
   if (!measurementId || measurementId === 'your-ga-measurement-id') {
-    console.log('Google Analytics not initialized: No valid measurement ID');
     return;
   }
 
@@ -36,8 +35,6 @@ export const initGA = () => {
   window.gtag('config', measurementId, {
     send_page_view: false, // We'll manually track page views for SPA routing
   });
-
-  console.log('Google Analytics initialized with ID:', measurementId);
 };
 
 /**

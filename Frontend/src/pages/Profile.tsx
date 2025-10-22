@@ -173,7 +173,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-6 relative overflow-hidden">
+    <div className="min-h-[calc(100vh-4rem)] p-4 sm:p-6 relative overflow-hidden">
       {/* Futuristic Background Effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <motion.div
@@ -233,31 +233,31 @@ const Profile = () => {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-4"
         >
-          <Avatar className="w-20 h-20 border-4 border-primary/20">
+          <Avatar className="w-16 h-16 sm:w-20 sm:h-20 border-4 border-primary/20">
             <AvatarImage src="" />
-            <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white text-2xl">
+            <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white text-xl sm:text-2xl">
               {getInitials(user.name)}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold gradient-text mb-1">{user.name}</h1>
-            <p className="text-muted-foreground flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              {user.email}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-1 truncate">{user.name}</h1>
+            <p className="text-muted-foreground flex items-center gap-2 text-sm sm:text-base truncate">
+              <Mail className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{user.email}</span>
             </p>
           </div>
         </motion.div>
 
         {/* Tabs for Profile and Dashboard */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2 mx-auto">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
+          <TabsList className="grid w-full max-w-md grid-cols-2 mx-auto h-auto">
+            <TabsTrigger value="profile" className="flex items-center gap-2 text-sm sm:text-base py-2">
               <UserIcon className="w-4 h-4" />
-              Profile
+              <span className="hidden sm:inline">Profile</span>
             </TabsTrigger>
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2 text-sm sm:text-base py-2">
               <BarChart3 className="w-4 h-4" />
-              Dashboard
+              <span className="hidden sm:inline">Dashboard</span>
             </TabsTrigger>
           </TabsList>
 
@@ -269,7 +269,7 @@ const Profile = () => {
               className="glass rounded-2xl p-6 border border-border"
             >
               <div className="flex items-start justify-between mb-6">
-                <h2 className="text-xl font-semibold">Basic Information</h2>
+                <h2 className="text-lg sm:text-xl font-semibold">Basic Information</h2>
                 {!isEditing && (
                   <Button onClick={handleEdit} variant="outline" size="sm">
                     <Edit2 className="w-4 h-4 mr-2" />
@@ -280,7 +280,7 @@ const Profile = () => {
 
           {/* Basic Info */}
           {!isEditing ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Age</p>
                 <p className="font-medium">{user.age} years</p>
@@ -560,11 +560,11 @@ const Profile = () => {
                       <CardDescription>Your learning activity at a glance</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        <div className="space-y-2 p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                        <div className="space-y-2 p-3 sm:p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
                           <MessageSquare className="w-5 h-5 text-blue-500" />
-                          <p className="text-2xl font-bold">{dashboardData.analytics.total_study_chats}</p>
-                          <p className="text-xs text-muted-foreground">Study Chats</p>
+                          <p className="text-xl sm:text-2xl font-bold">{dashboardData.analytics.total_study_chats}</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">Study Chats</p>
                         </div>
                         <div className="space-y-2 p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20">
                           <MessageSquare className="w-5 h-5 text-purple-500" />

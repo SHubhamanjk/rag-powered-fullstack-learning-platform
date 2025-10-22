@@ -2,19 +2,15 @@ import os
 import uuid
 from datetime import datetime, date
 from typing import Dict, Any, List
-from dotenv import load_dotenv
-from groq import Groq
 from utils.db import get_todo_collection
 from utils.timezone import get_current_time
+from utils.llm import groq_chat_completion
 from prompts import TODO_ASSISTANT_PROMPT
-
-load_dotenv()
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = os.getenv("GROQ_MODEL")
 
 async def create_todo(
     email: str,
     task: str,
+    category: str,
     target_date: str = None,
     description: str = None
 ) -> Dict[str, Any]:
@@ -35,6 +31,7 @@ async def create_todo(
         "todo_id": todo_id,
         "email": email,
         "task": task,
+        "category": category,
         "description": description,
         "status": "pending",
         "date": target_date,
@@ -53,6 +50,7 @@ async def create_todo(
 async def update_todo(
     todo_id: str,
     task: str = None,
+    category: str = None,
     target_date: str = None,
     description: str = None,
     status: str = None
@@ -78,6 +76,8 @@ async def update_todo(
     
     if task is not None:
         update_doc["task"] = task
+    if category is not None:
+        update_doc["category"] = category
     if target_date is not None:
         update_doc["date"] = target_date
     if description is not None:
@@ -151,6 +151,7 @@ async def get_user_todos(email: str) -> Dict[str, Any]:
             "todo_id": todo["todo_id"],
             "email": todo["email"],
             "task": todo["task"],
+            "category": todo.get("category", "Uncategorized"),
             "description": todo.get("description"),
             "status": todo["status"],
             "date": todo["date"],
@@ -213,15 +214,12 @@ Help the user complete this task by providing specific, actionable guidance.
         "content": question
     })
     
-    # Call LLM
-    response = groq_client.chat.completions.create(
-        model=MODEL,
+    # Call Groq API via centralized LLM utility
+    ai_response = groq_chat_completion(
         messages=messages,
         temperature=0.7,
         max_tokens=500
     )
-    
-    ai_response = response.choices[0].message.content.strip()
     
     # Update chat history
     current_time = get_current_time().isoformat()
@@ -277,6 +275,7 @@ async def get_todos_by_status(email: str, status: str) -> Dict[str, Any]:
             "todo_id": todo["todo_id"],
             "email": todo["email"],
             "task": todo["task"],
+            "category": todo.get("category", "Uncategorized"),
             "description": todo.get("description"),
             "status": todo["status"],
             "date": todo["date"],

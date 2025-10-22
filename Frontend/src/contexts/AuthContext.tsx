@@ -30,8 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
     } catch (error) {
-      console.error("Failed to fetch user data:", error);
-      // If token is invalid, logout
+      // Failed to fetch user data, if token is invalid, logout
       logout();
     }
   };

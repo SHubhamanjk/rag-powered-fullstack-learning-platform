@@ -133,3 +133,44 @@ class DeleteChatResponse(BaseModel):
             ]
         }
     }
+
+class TemporaryChatMessage(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
+class TemporaryChatRequest(BaseModel):
+    message: str
+    conversation_history: List[TemporaryChatMessage] = []
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "message": "What is machine learning?",
+                    "conversation_history": [
+                        {
+                            "role": "user",
+                            "content": "Tell me about AI"
+                        },
+                        {
+                            "role": "assistant",
+                            "content": "AI stands for Artificial Intelligence..."
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+class TemporaryChatResponse(BaseModel):
+    response: str
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "response": "Machine learning is a subset of AI that enables computers to learn from data..."
+                }
+            ]
+        }
+    }

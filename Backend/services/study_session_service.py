@@ -3,8 +3,6 @@ import uuid
 import json
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from dotenv import load_dotenv
-from groq import Groq
 import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
@@ -14,6 +12,7 @@ import base64
 from utils.db import get_study_sessions_collection
 from utils.timezone import get_current_time
 from utils.cache import cache_response, invalidate_cache
+from utils.llm import gemini_chat_completion, gemini_generate_content
 from prompts import (
     STUDY_SESSION_ASSISTANT_PROMPT,
     QUIZ_GENERATION_PROMPT,
@@ -21,10 +20,6 @@ from prompts import (
     MINDMAP_ANALYSIS_PROMPT,
     MINDMAP_GENERATION_PROMPT
 )
-
-load_dotenv()
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = os.getenv("GROQ_MODEL")
 
 # Initialize sentence transformer for embeddings
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -74,7 +69,6 @@ def create_embeddings_for_corpus(corpus: List[str]) -> Optional[np.ndarray]:
         corpus_embeddings = embedding_model.encode(corpus, convert_to_numpy=True)
         return corpus_embeddings
     except Exception as e:
-        print(f"Error creating embeddings: {e}")
         return None
 
 def rag_search_optimized(query: str, corpus: List[str], embeddings: np.ndarray, top_k: int = 3) -> List[str]:
@@ -95,7 +89,6 @@ def rag_search_optimized(query: str, corpus: List[str], embeddings: np.ndarray, 
         results = [corpus[i] for i in indices[0] if i < len(corpus)]
         return results
     except Exception as e:
-        print(f"RAG search error: {e}")
         return []
 
 # ============================================================================
@@ -143,14 +136,12 @@ async def create_study_session(
     # Create RAG corpus and embeddings
     corpus = create_corpus_from_session(session_doc)
     if corpus:
-        print(f"Creating embeddings for {len(corpus)} chunks...")
         embeddings = create_embeddings_for_corpus(corpus)
         if embeddings is not None:
             session_doc["rag_data"] = {
                 "corpus": corpus,
                 "embeddings": embeddings.tolist()  # Convert numpy array to list for MongoDB
             }
-            print(f"Embeddings created successfully: {embeddings.shape}")
         else:
             session_doc["rag_data"] = None
     else:
@@ -283,7 +274,6 @@ async def update_study_session(
         # Regenerate corpus and embeddings
         corpus = create_corpus_from_session(updated_session)
         if corpus:
-            print(f"Regenerating embeddings for {len(corpus)} chunks...")
             embeddings = create_embeddings_for_corpus(corpus)
             if embeddings is not None:
                 collection.update_one(
@@ -297,7 +287,6 @@ async def update_study_session(
                         }
                     }
                 )
-                print(f"Embeddings regenerated successfully: {embeddings.shape}")
             else:
                 collection.update_one(
                     {"session_id": session_id},
@@ -360,7 +349,7 @@ async def study_assistant_chat(session_id: str, question: str) -> Dict[str, Any]
         # Perform optimized RAG search using pre-computed embeddings
         relevant_chunks = rag_search_optimized(question, corpus, embeddings, top_k=3)
     else:
-        print("Warning: No RAG data available for this session")
+        pass  # No RAG data available for this session
     
     # Build context from RAG results
     rag_context = ""
@@ -402,19 +391,20 @@ STUDY SESSION INFORMATION:
         "content": question
     })
     
-    # Call LLM
-    response = groq_client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
+    # Call Gemini via centralized LLM utility
+    # Extract system instruction from first message
+    system_instruction = None
+    user_messages = messages
+    if messages and messages[0]["role"] == "system":
+        system_instruction = messages[0]["content"]
+        user_messages = messages[1:]
+    
+    ai_response = gemini_chat_completion(
+        messages=user_messages,
+        system_instruction=system_instruction,
         temperature=0.7,
-        max_tokens=1500  # Allow longer responses for detailed explanations
+        max_tokens=1500
     )
-    
-    # Validate response
-    if not response or not hasattr(response, 'choices') or not response.choices:
-        raise ValueError("Invalid response from AI assistant")
-    
-    ai_response = response.choices[0].message.content.strip()
     
     # Update chat history
     current_time = get_current_time().isoformat()
@@ -499,36 +489,15 @@ Generate a comprehensive quiz covering the topics studied in this session.
 Focus on the concepts discussed and align with the syllabus and PYQ patterns.
 """
     
-    # Call LLM
-    try:
-        response = groq_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": QUIZ_GENERATION_PROMPT},
-                {"role": "user", "content": quiz_prompt}
-            ],
-            temperature=0.3,
-            max_tokens=4000,
-            response_format={"type": "json_object"}
-        )
-    except Exception:
-        # Fallback without response_format
-        response = groq_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": QUIZ_GENERATION_PROMPT},
-                {"role": "user", "content": quiz_prompt}
-            ],
-            temperature=0.3,
-            max_tokens=4000
-        )
+    # Call Gemini via centralized LLM utility
+    quiz_json = gemini_generate_content(
+        prompt=quiz_prompt,
+        system_instruction=QUIZ_GENERATION_PROMPT,
+        temperature=0.3,
+        max_tokens=4000
+    )
     
-    # Validate response
-    if not response or not hasattr(response, 'choices') or not response.choices:
-        raise ValueError("Invalid response from AI for quiz generation")
-    
-    # Parse response
-    quiz_json = response.choices[0].message.content.strip()
+    # quiz_json already contains the response from gemini_generate_content
     
     try:
         if "```json" in quiz_json:
@@ -538,7 +507,6 @@ Focus on the concepts discussed and align with the syllabus and PYQ patterns.
         
         quiz_data = json.loads(quiz_json)
     except json.JSONDecodeError as e:
-        print(f"JSON decode error: {e}")
         raise ValueError("Failed to parse quiz JSON")
     
     # Generate quiz ID
@@ -694,46 +662,17 @@ STUDY SESSION DISCUSSION:
 Analyze the study session and determine the optimal number of mindmaps (1-3) to visualize the concepts covered.
 """
     
-    try:
-        response = groq_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": MINDMAP_ANALYSIS_PROMPT},
-                {"role": "user", "content": analysis_prompt}
-            ],
-            temperature=0.3,
-            max_tokens=2000,
-            response_format={"type": "json_object"}
-        )
-    except Exception as e:
-        print(f"JSON mode failed, trying without: {e}")
-        response = groq_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": MINDMAP_ANALYSIS_PROMPT},
-                {"role": "user", "content": analysis_prompt}
-            ],
-            temperature=0.3,
-            max_tokens=2000
-        )
+    # Call Gemini via centralized LLM utility
+    analysis_json = gemini_generate_content(
+        prompt=analysis_prompt,
+        system_instruction=MINDMAP_ANALYSIS_PROMPT,
+        temperature=0.3,
+        max_tokens=2000
+    )
     
-    # Validate response object
-    if not response or not hasattr(response, 'choices') or not response.choices:
-        raise ValueError("Invalid or empty response from AI")
-    
-    # Parse analysis - safely extract content
-    try:
-        if not hasattr(response.choices[0], 'message') or not response.choices[0].message:
-            raise ValueError("Response has no message")
-        
-        analysis_json = response.choices[0].message.content
-        if not analysis_json:
-            raise ValueError("Empty response from analysis")
-        analysis_json = analysis_json.strip()
-    except (AttributeError, IndexError, TypeError) as e:
-        print(f"Failed to extract analysis response: {e}")
-        print(f"Response object: {response}")
-        raise ValueError("Failed to get mindmap analysis from AI")
+    # analysis_json already contains the response from gemini_generate_content
+    if not analysis_json or not analysis_json.strip():
+        raise ValueError("Empty response from mindmap analysis")
     
     try:
         if "```json" in analysis_json:
@@ -743,8 +682,6 @@ Analyze the study session and determine the optimal number of mindmaps (1-3) to 
         
         analysis_data = json.loads(analysis_json)
     except json.JSONDecodeError as e:
-        print(f"JSON decode error: {e}")
-        print(f"Analysis response: {analysis_json[:500]}")
         raise ValueError("Failed to parse mindmap analysis")
     
     # Step 2: Generate each mindmap
@@ -788,48 +725,18 @@ CONTEXT:
 Create a detailed mindmap structure for this topic.
 """
         
+        # Call Gemini via centralized LLM utility
         try:
-            response = groq_client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": MINDMAP_GENERATION_PROMPT},
-                    {"role": "user", "content": generation_prompt}
-                ],
-                temperature=0.3,
-                max_tokens=3000,
-                response_format={"type": "json_object"}
-            )
-        except Exception as e:
-            print(f"JSON mode failed for topic {idx}, trying without: {e}")
-            response = groq_client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": MINDMAP_GENERATION_PROMPT},
-                    {"role": "user", "content": generation_prompt}
-                ],
+            mindmap_json = gemini_generate_content(
+                prompt=generation_prompt,
+                system_instruction=MINDMAP_GENERATION_PROMPT,
                 temperature=0.3,
                 max_tokens=3000
             )
-        
-        # Validate response object
-        if not response or not hasattr(response, 'choices') or not response.choices:
-            print(f"Invalid response from AI for topic {idx}")
-            continue
-        
-        # Safely extract content
-        try:
-            if not hasattr(response.choices[0], 'message') or not response.choices[0].message:
-                print(f"Response has no message for topic {idx}")
-                continue
-                
-            mindmap_json = response.choices[0].message.content
-            if not mindmap_json:
-                print(f"Empty response for mindmap topic {idx}")
+            if not mindmap_json or not mindmap_json.strip():
                 continue
             mindmap_json = mindmap_json.strip()
-        except (AttributeError, IndexError, TypeError) as e:
-            print(f"Failed to extract response for topic {idx}: {e}")
-            print(f"Response object: {response}")
+        except Exception as e:
             continue
         
         try:
@@ -842,18 +749,15 @@ Create a detailed mindmap structure for this topic.
             
             # Validate structure has required fields
             if not isinstance(mindmap_structure, dict):
-                print(f"Invalid mindmap structure for topic {idx}")
                 continue
                 
         except (json.JSONDecodeError, IndexError, AttributeError) as e:
-            print(f"Failed to parse mindmap JSON for topic {idx}: {e}")
             continue
         
         # Render mindmap
         try:
             image_b64 = render_mindmap_image(mindmap_structure)
         except Exception as e:
-            print(f"Failed to render mindmap for topic {idx}: {e}")
             continue
         
         mindmap_id = f"mindmap_{uuid.uuid4().hex[:12]}"
@@ -974,22 +878,13 @@ Evaluate the following descriptive answers:
 Provide scores and feedback for each question, plus overall analysis.
 """
     
-    response = groq_client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": QUIZ_EVALUATION_PROMPT},
-            {"role": "user", "content": llm_eval_prompt}
-        ],
+    # Call Gemini via centralized LLM utility
+    eval_json = gemini_generate_content(
+        prompt=llm_eval_prompt,
+        system_instruction=QUIZ_EVALUATION_PROMPT,
         temperature=0.3,
         max_tokens=3000
     )
-    
-    # Validate response
-    if not response or not hasattr(response, 'choices') or not response.choices:
-        raise ValueError("Invalid response from AI for quiz evaluation")
-    
-    # Parse LLM evaluation
-    eval_json = response.choices[0].message.content.strip()
     
     try:
         if "```json" in eval_json:

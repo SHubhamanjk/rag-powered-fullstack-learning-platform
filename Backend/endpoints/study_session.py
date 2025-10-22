@@ -225,12 +225,8 @@ async def generate_mindmap_endpoint(
         result = await generate_session_mindmaps(req.session_id)
         return GenerateSessionMindmapResponse(**result)
     except ValueError as e:
-        print(f"ValueError in mindmap generation: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import traceback
-        print(f"Exception in mindmap generation: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @router.post("/quiz/evaluate", response_model=EvaluateSessionQuizResponse)

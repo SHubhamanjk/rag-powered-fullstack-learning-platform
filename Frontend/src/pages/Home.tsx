@@ -10,7 +10,10 @@ import {
   Trash2,
   Loader2,
   GraduationCap,
-  Smile
+  Smile,
+  Zap,
+  Menu,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { chatService } from "@/services/chatService";
 import { friendChatService } from "@/services/friendChatService";
 import MarkdownMessage from "@/components/MarkdownMessage";
-import type { ChatMode, Message, Chat } from "@/types/chat";
+import type { ChatMode, Message, Chat, TemporaryChatMessage } from "@/types/chat";
 
 const Home = () => {
   const { toast } = useToast();
@@ -27,6 +30,7 @@ const Home = () => {
   
   // Mode state
   const [mode, setMode] = useState<ChatMode>("study");
+  const [isTemporaryMode, setIsTemporaryMode] = useState(false);
   
   // Chat state
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -39,25 +43,28 @@ const Home = () => {
   const [isFetchingChats, setIsFetchingChats] = useState(false);
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const [isNewChatMode, setIsNewChatMode] = useState(false); // Track if user wants a new chat
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sidebar state
 
   // Get the appropriate service based on mode
   const getService = () => mode === "study" ? chatService : friendChatService;
 
-  // Fetch user's chats when mode changes
+  // Fetch user's chats when mode changes or temporary mode is disabled
   useEffect(() => {
-    fetchChats();
-    setCurrentChatId(null);
-    setMessages([]);
-  }, [mode]);
+    if (!isTemporaryMode) {
+      fetchChats();
+      setCurrentChatId(null);
+      setMessages([]);
+    }
+  }, [mode, isTemporaryMode]);
 
-  // Automatically load the most recent chat when chatList changes (but not if user wants a new chat)
+  // Automatically load the most recent chat when chatList changes (but not if user wants a new chat or in temporary mode)
   useEffect(() => {
-    if (chatList.length > 0 && !currentChatId && !isFetchingHistory && !isNewChatMode) {
+    if (chatList.length > 0 && !currentChatId && !isFetchingHistory && !isNewChatMode && !isTemporaryMode) {
       // Load the most recent chat (first in the list, as they're sorted by updated_at desc)
       loadChatHistory(chatList[0].chat_id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatList, currentChatId, isFetchingHistory, isNewChatMode]);
+  }, [chatList, currentChatId, isFetchingHistory, isNewChatMode, isTemporaryMode]);
 
   // Auto-scroll to bottom when messages change or chat is loaded
   useEffect(() => {
@@ -74,7 +81,7 @@ const Home = () => {
       const response = await getService().getMyChats();
       setChatList(response.chats);
     } catch (error: any) {
-      console.error("Failed to fetch chats:", error);
+      // Failed to fetch chats
     } finally {
       setIsFetchingChats(false);
     }
@@ -96,11 +103,11 @@ const Home = () => {
         startNewChat();
       } else {
         // Show error for other issues
-        toast({
-          title: "Failed to Load Chat",
-          description: error.message || "Could not load chat history.",
-          variant: "destructive",
-        });
+      toast({
+        title: "Unable to Load Chat",
+        description: error.message || "Couldn't load this conversation. Please try again.",
+        variant: "destructive",
+      });
       }
     } finally {
       setIsFetchingHistory(false);
@@ -135,33 +142,56 @@ const Home = () => {
     setIsLoading(true);
 
     try {
-      const response = await getService().sendMessage({
-        chat_id: currentChatId || undefined, // Send undefined instead of null
-        message: userMessage.content,
-      });
+      if (isTemporaryMode) {
+        // Handle temporary chat
+        const conversationHistory: TemporaryChatMessage[] = messages.map(({ role, content }) => ({
+          role,
+          content,
+        }));
 
-      // Add AI response
-      const aiMessage: Message = {
-        role: "assistant",
-        content: response.response,
-        timestamp: new Date().toISOString(),
-      };
+        const aiResponse = await chatService.sendTemporaryMessage(
+          userMessage.content,
+          conversationHistory
+        );
 
-      setMessages((prev) => [...prev, aiMessage]);
-      
-      // Update current chat ID if it was a new chat
-      if (!currentChatId && response.chat_id) {
-        setCurrentChatId(response.chat_id);
-        setIsNewChatMode(false); // Exit new chat mode after first message
+        // Add AI response
+        const aiMessage: Message = {
+          role: "assistant",
+          content: aiResponse,
+          timestamp: new Date().toISOString(),
+        };
+
+        setMessages((prev) => [...prev, aiMessage]);
+      } else {
+        // Handle regular chat
+        const response = await getService().sendMessage({
+          chat_id: currentChatId || undefined, // Send undefined instead of null
+          message: userMessage.content,
+        });
+
+        // Add AI response
+        const aiMessage: Message = {
+          role: "assistant",
+          content: response.response,
+          timestamp: new Date().toISOString(),
+        };
+
+        setMessages((prev) => [...prev, aiMessage]);
+        
+        // Update current chat ID if it was a new chat
+        if (!currentChatId && response.chat_id) {
+          setCurrentChatId(response.chat_id);
+          setIsNewChatMode(false); // Exit new chat mode after first message
+        }
+        
+        // Always refresh chat list after sending a message to keep it updated
+        await fetchChats();
       }
-      
-      // Always refresh chat list after sending a message to keep it updated
-      await fetchChats();
     } catch (error: any) {
-      console.error("Send message error:", error);
+      // Send message error with user-friendly message
       toast({
-        title: "Failed to Send Message",
-        description: error.message || "Could not send your message. Please try again.",
+        title: "Message Failed",
+        description: error.message || "Unable to send your message. Please try again.",
         variant: "destructive",
       });
       
@@ -195,8 +225,8 @@ const Home = () => {
       });
     } catch (error: any) {
       toast({
-        title: "Failed to Delete Chat",
-        description: error.message || "Could not delete the chat.",
+        title: "Delete Failed",
+        description: error.message || "Unable to delete this conversation. Please try again.",
         variant: "destructive",
       });
     }
@@ -207,9 +237,47 @@ const Home = () => {
     setMode((prev) => (prev === "study" ? "friend" : "study"));
   };
 
+  // Toggle temporary mode
+  const toggleTemporaryMode = () => {
+    if (!isTemporaryMode) {
+      // Entering temporary mode
+      if (messages.length > 0 && !confirm("Switch to Temporary Chat? Your current conversation will be hidden (but saved).")) {
+        return;
+      }
+      setIsTemporaryMode(true);
+      setMessages([]); // Clear all messages for fresh start
+      setCurrentChatId(null);
+      setInput(""); // Clear input field
+      setChatList([]); // Clear chat list to prevent auto-loading
+      toast({
+        title: "Temporary Chat Active",
+        description: "Messages won't be saved. Click again to exit and return to saved chats.",
+      });
+    } else {
+      // Exiting temporary mode
+      if (messages.length > 0) {
+        if (!confirm("Exit Temporary Chat? All temporary messages will be permanently deleted.")) {
+          return;
+        }
+      }
+      setIsTemporaryMode(false);
+      setMessages([]); // Clear temporary messages
+      setCurrentChatId(null);
+      setInput(""); // Clear input field
+      setIsNewChatMode(false); // Reset new chat mode flag
+      fetchChats(); // Reload saved chats (this will trigger auto-load of most recent)
+      toast({
+        title: "Back to Regular Chat",
+        description: "Your conversations will now be saved.",
+      });
+    }
+  };
+
   // Get welcome message based on mode
   const getWelcomeMessage = () => {
-    if (mode === "study") {
+    if (isTemporaryMode) {
+      return "⚡ Temporary Chat Mode - Messages won't be saved! Ask anything freely. Click 'Exit Temp' button when done to return to your saved chats.";
+    } else if (mode === "study") {
       return "Hi! I'm your AI study assistant. I'm here to help you learn, understand complex topics, and ace your studies. Ask me anything!";
     } else {
       return "Hey there! I'm your AI friend, here to chat, listen, and support you. How are you doing today?";
@@ -255,6 +323,17 @@ const Home = () => {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] relative overflow-hidden">
+      {/* Mobile Sidebar Toggle Button */}
+      {!isTemporaryMode && (
+        <Button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          size="icon"
+          className="fixed bottom-4 left-4 lg:hidden z-30 h-12 w-12 rounded-full bg-gradient-to-r from-primary to-secondary shadow-lg"
+        >
+          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </Button>
+      )}
+
       {/* Futuristic Background Effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <motion.div
@@ -313,25 +392,49 @@ const Home = () => {
         ))}
       </div>
 
-      {/* Sidebar */}
-      <motion.aside
-        initial={{ x: -300, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className={`w-64 border-r border-border/50 backdrop-blur-xl hidden lg:flex flex-col relative z-10 ${
-          mode === "study" 
-            ? "bg-gradient-to-b from-blue-500/5 via-purple-500/5 to-blue-500/5" 
-            : "bg-gradient-to-b from-pink-500/5 via-rose-500/5 to-pink-500/5"
-        }`}
-      >
+      {/* Sidebar - Hidden in temporary mode */}
+      {!isTemporaryMode && (
+        <>
+          {/* Mobile Sidebar Overlay */}
+          <AnimatePresence>
+            {sidebarOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSidebarOpen(false)}
+                className="fixed inset-0 bg-background/80 backdrop-blur-sm z-20 lg:hidden"
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Sidebar */}
+          <motion.aside
+            initial={{ x: -300, opacity: 0 }}
+            animate={{ 
+              x: sidebarOpen || window.innerWidth >= 1024 ? 0 : -300,
+              opacity: sidebarOpen || window.innerWidth >= 1024 ? 1 : 0 
+            }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className={`w-64 border-r border-border/50 backdrop-blur-xl flex-col relative z-30 ${
+              sidebarOpen ? "fixed inset-y-0 left-0 flex lg:relative" : "hidden lg:flex"
+            } ${
+              mode === "study" 
+                ? "bg-gradient-to-b from-blue-500/5 via-purple-500/5 to-blue-500/5" 
+                : "bg-gradient-to-b from-pink-500/5 via-rose-500/5 to-pink-500/5"
+            }`}
+          >
         {/* New Chat Button */}
         <div className="p-4 border-b border-border/50">
           <motion.div
             whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-          <Button 
-            onClick={startNewChat}
+              whileTap={{ scale: 0.98 }}
+            >
+            <Button 
+              onClick={() => {
+                startNewChat();
+                setSidebarOpen(false);
+              }}
               className={`w-full gap-2 relative overflow-hidden group shadow-lg hover:shadow-xl transition-all ${
               mode === "study"
                 ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90"
@@ -367,7 +470,10 @@ const Home = () => {
                   transition={{ delay: index * 0.05 }}
                   whileHover={{ x: 6, scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => loadChatHistory(chat.chat_id)}
+                  onClick={() => {
+                    loadChatHistory(chat.chat_id);
+                    setSidebarOpen(false);
+                  }}
                   className={`p-3 rounded-xl cursor-pointer flex items-center gap-3 group relative overflow-hidden transition-all ${
                     currentChatId === chat.chat_id
                       ? mode === "study"
@@ -467,6 +573,8 @@ const Home = () => {
           </motion.div>
         </div>
       </motion.aside>
+        </>
+      )}
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
@@ -481,12 +589,12 @@ const Home = () => {
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
+            <div className="flex items-center gap-2 sm:gap-3">
               {mode === "study" ? (
                 <>
                   <motion.div 
-                    className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg relative"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg relative"
                     animate={{
                       rotate: [0, 5, -5, 0]
                     }}
@@ -496,7 +604,7 @@ const Home = () => {
                       ease: "easeInOut"
                     }}
                   >
-                    <BookOpen className="w-6 h-6 text-white relative z-10" />
+                    <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white relative z-10" />
                     <motion.div
                       className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 blur-md"
                       animate={{
@@ -511,8 +619,8 @@ const Home = () => {
                     />
                   </motion.div>
                   <div>
-                    <h2 className="font-bold text-lg">Study Mode</h2>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <h2 className="font-bold text-base sm:text-lg">Study Mode</h2>
+                    <p className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
                       AI-powered learning assistant
                     </p>
@@ -521,7 +629,7 @@ const Home = () => {
               ) : (
                 <>
                   <motion.div 
-                    className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg relative"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg relative"
                     animate={{
                       scale: [1, 1.05, 1]
                     }}
@@ -531,7 +639,7 @@ const Home = () => {
                       ease: "easeInOut"
                     }}
                   >
-                    <Smile className="w-6 h-6 text-white relative z-10" />
+                    <Smile className="w-5 h-5 sm:w-6 sm:h-6 text-white relative z-10" />
                     <motion.div
                       className="absolute inset-0 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 blur-md"
                       animate={{
@@ -546,8 +654,8 @@ const Home = () => {
                     />
                   </motion.div>
                   <div>
-                    <h2 className="font-bold text-lg">Friend Mode</h2>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <h2 className="font-bold text-base sm:text-lg">Friend Mode</h2>
+                    <p className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
                       <Heart className="w-3 h-3 animate-pulse" />
                       Your caring companion
                     </p>
@@ -555,22 +663,42 @@ const Home = () => {
                 </>
               )}
             </div>
-            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Button
-              onClick={toggleMode}
-              variant="ghost"
-              size="sm"
-              className="lg:hidden"
-            >
-              {mode === "study" ? <Heart className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
-            </Button>
-            </motion.div>
+            <div className="flex items-center gap-2">
+              <motion.div 
+                whileHover={{ scale: 1.05 }} 
+                whileTap={{ scale: 0.95 }}
+              >
+                <Button
+                  onClick={toggleTemporaryMode}
+                  size="sm"
+                  className={`gap-2 transition-all shadow-lg ${
+                    isTemporaryMode
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90"
+                      : "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:from-gray-200 hover:to-gray-300"
+                  }`}
+                  title={isTemporaryMode ? "Exit Temporary Chat (messages will be deleted)" : "Start Temporary Chat (messages won't be saved)"}
+                >
+                  <Zap className={`w-4 h-4 ${isTemporaryMode ? "animate-pulse" : ""}`} />
+                  <span className="hidden md:inline">{isTemporaryMode ? "Exit Temp" : "Temporary Chat"}</span>
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="lg:hidden">
+                <Button
+                  onClick={toggleMode}
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0"
+                >
+                  {mode === "study" ? <Heart className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
+                </Button>
+              </motion.div>
+            </div>
           </div>
         </motion.div>
 
         {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4 md:p-6">
-          <div className="max-w-4xl mx-auto space-y-6">
+        <ScrollArea className="flex-1 p-3 sm:p-4 md:p-6">
+          <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
             {isFetchingHistory ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -584,7 +712,9 @@ const Home = () => {
               >
                 <motion.div 
                   className={`w-24 h-24 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-2xl relative ${
-                  mode === "study"
+                  isTemporaryMode
+                    ? "bg-gradient-to-br from-amber-500 to-orange-500"
+                    : mode === "study"
                     ? "bg-gradient-to-br from-blue-500 to-purple-500"
                     : "bg-gradient-to-br from-pink-500 to-rose-500"
                   }`}
@@ -597,14 +727,18 @@ const Home = () => {
                     ease: "easeInOut"
                   }}
                 >
-                  {mode === "study" ? (
+                  {isTemporaryMode ? (
+                    <Zap className="w-12 h-12 text-white animate-pulse relative z-10" />
+                  ) : mode === "study" ? (
                     <GraduationCap className="w-12 h-12 text-white relative z-10" />
                   ) : (
                     <Heart className="w-12 h-12 text-white animate-pulse relative z-10" />
                   )}
                   <motion.div
                     className={`absolute inset-0 rounded-2xl ${
-                      mode === "study"
+                      isTemporaryMode
+                        ? "bg-gradient-to-br from-amber-500 to-orange-500"
+                        : mode === "study"
                         ? "bg-gradient-to-br from-blue-500 to-purple-500"
                         : "bg-gradient-to-br from-pink-500 to-rose-500"
                     } blur-xl`}
@@ -625,7 +759,7 @@ const Home = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  {mode === "study" ? "Ready to Learn!" : "Here for You!"}
+                  {isTemporaryMode ? "Temporary Chat Mode" : mode === "study" ? "Ready to Learn!" : "Here for You!"}
                 </motion.h3>
                 <motion.p 
                   className="text-muted-foreground max-w-md mx-auto text-lg leading-relaxed"
@@ -641,7 +775,11 @@ const Home = () => {
                   <motion.div
                     key={i}
                     className={`absolute w-2 h-2 rounded-full ${
-                      mode === "study" ? "bg-blue-500/30" : "bg-pink-500/30"
+                      isTemporaryMode 
+                        ? "bg-amber-500/30" 
+                        : mode === "study" 
+                        ? "bg-blue-500/30" 
+                        : "bg-pink-500/30"
                     }`}
                     animate={{
                       y: [0, -30, 0],
@@ -674,7 +812,7 @@ const Home = () => {
                     className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[80%] p-4 rounded-2xl ${
+                      className={`max-w-[85%] sm:max-w-[80%] p-3 sm:p-4 rounded-2xl ${
                         message.role === "user"
                           ? mode === "study"
                             ? "bg-gradient-to-br from-blue-500 to-purple-500 text-white"
@@ -723,8 +861,8 @@ const Home = () => {
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="border-t border-border/50 backdrop-blur-xl p-4 relative z-10">
-          <div className="max-w-4xl mx-auto flex gap-3">
+        <div className="border-t border-border/50 backdrop-blur-xl p-3 sm:p-4 relative z-10">
+          <div className="max-w-4xl mx-auto flex gap-2 sm:gap-3">
             <motion.div 
               className="flex-1 relative"
               whileFocus={{ scale: 1.01 }}
@@ -738,7 +876,7 @@ const Home = () => {
                   ? "Ask me anything you want to learn..." 
                   : "Share what's on your mind..."
               }
-                className="h-14 rounded-2xl glass border-2 border-border/50 focus:border-primary/50 pr-12 text-base"
+                className="h-12 sm:h-14 rounded-2xl glass border-2 border-border/50 focus:border-primary/50 pr-12 text-sm sm:text-base"
               disabled={isLoading}
             />
               {input.trim() && (
@@ -761,7 +899,7 @@ const Home = () => {
               onClick={handleSend}
               size="icon"
               disabled={isLoading || !input.trim()}
-                className={`h-14 w-14 rounded-2xl hover:opacity-90 shadow-lg hover:shadow-xl transition-all relative overflow-hidden group ${
+                className={`h-12 w-12 sm:h-14 sm:w-14 rounded-2xl hover:opacity-90 shadow-lg hover:shadow-xl transition-all relative overflow-hidden group ${
                 mode === "study"
                   ? "bg-gradient-to-br from-blue-500 to-purple-500"
                   : "bg-gradient-to-br from-pink-500 to-rose-500"

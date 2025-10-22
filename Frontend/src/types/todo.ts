@@ -6,6 +6,7 @@ export interface Todo {
   todo_id: string;
   email: string;
   task: string;
+  category: string;
   description?: string;
   status: TodoStatus;
   date: string;
@@ -15,6 +16,7 @@ export interface Todo {
 
 export interface CreateTodoRequest {
   task: string;
+  category: string;
   description?: string;
   date?: string;
 }
@@ -27,6 +29,7 @@ export interface CreateTodoResponse {
 export interface UpdateTodoRequest {
   todo_id: string;
   task?: string;
+  category?: string;
   description?: string;
   date?: string;
   status?: TodoStatus;
