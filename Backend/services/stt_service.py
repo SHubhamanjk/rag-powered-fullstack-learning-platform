@@ -4,7 +4,8 @@ import requests
 from groq import Groq
 from fastapi import UploadFile
 
-client = Groq()
+# Initialize Groq client with explicit API key from environment
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 async def speech_to_text(audio_url):
     response = requests.get(audio_url)
