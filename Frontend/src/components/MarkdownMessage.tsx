@@ -50,7 +50,7 @@ const MarkdownMessage = ({ content, className = "" }: MarkdownMessageProps) => {
             </code>
           ) : (
             <code
-              className={`block bg-muted p-3 rounded-lg text-sm font-mono overflow-x-auto ${className}`}
+              className={`block bg-muted p-3 rounded-lg text-sm font-mono overflow-x-auto scrollbar-hide ${className}`}
               {...props}
             >
               {children}
@@ -58,7 +58,7 @@ const MarkdownMessage = ({ content, className = "" }: MarkdownMessageProps) => {
           );
         },
         pre: ({ children }) => (
-          <pre className="bg-muted rounded-lg p-3 mb-2 overflow-x-auto">
+          <pre className="bg-muted rounded-lg p-3 mb-2 overflow-x-auto scrollbar-hide">
             {children}
           </pre>
         ),
@@ -81,7 +81,7 @@ const MarkdownMessage = ({ content, className = "" }: MarkdownMessageProps) => {
         ),
         // Tables
         table: ({ children }) => (
-          <div className="overflow-x-auto mb-2">
+          <div className="overflow-x-auto mb-2 scrollbar-hide">
             <table className="min-w-full border-collapse border border-border">
               {children}
             </table>

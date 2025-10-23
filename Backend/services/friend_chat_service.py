@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any
 from bson import ObjectId
 from utils.db import get_friend_chat_collection, get_user_collection
 from utils.timezone import get_current_time
-from utils.llm import groq_chat_completion
+from utils.llm import groq_chat_completion, chat_completion_with_fallback
 from prompts import FRIEND_MODE_SYSTEM_PROMPT
 
 def generate_title(message: str) -> str:
@@ -77,8 +77,29 @@ async def generate_friend_reply(chat_id: Optional[str], message: str, email: str
     messages += context_messages
     messages.append({"role": "user", "content": message})
     
-    # Call Groq API via centralized LLM utility
-    reply = groq_chat_completion(messages=messages, temperature=0.7)
+    # Call LLM with automatic fallback (Groq -> Gemini)
+    try:
+        # Extract system instruction
+        system_instruction = None
+        user_messages = []
+        for msg in messages:
+            if msg["role"] == "system":
+                system_instruction = msg["content"]
+            else:
+                user_messages.append(msg)
+        
+        reply, provider_used = chat_completion_with_fallback(
+            messages=user_messages,
+            system_instruction=system_instruction,
+            temperature=0.7,
+            prefer_gemini=False  # Prefer Groq for friend chat (faster)
+        )
+        print(f"[Friend Chat] Response generated using: {provider_used}")
+        
+    except Exception as e:
+        # Log error and provide fallback response
+        print(f"[Friend Chat] All providers failed: {str(e)}")
+        reply = "I'm temporarily unable to respond. Please try again in a moment."
     
     # Prepare new messages
     current_time = get_current_time()

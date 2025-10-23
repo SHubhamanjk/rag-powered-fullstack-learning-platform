@@ -2,9 +2,10 @@
 
 export interface Tutorial {
   tutorial_id: string;
-  email: string;
+  email?: string;
   tutorial_link: string;
   title: string;
+  group: string;
   notes_count: number;
   created_at: string;
   updated_at: string;
@@ -20,12 +21,29 @@ export interface Note {
 
 export interface CreateTutorialRequest {
   tutorial_link: string;
+  group?: string;
 }
 
 export interface CreateTutorialResponse {
   message: string;
   title: string;
   tutorial_id: string;
+}
+
+export interface EditTutorialRequest {
+  title?: string;
+  group?: string;
+}
+
+export interface ConsolidatedNotesRequest {
+  group: string;
+}
+
+export interface ConsolidatedNotesResponse {
+  group: string;
+  notes_content: string;
+  tutorials_included: number;
+  message: string;
 }
 
 export interface AddNoteRequest {

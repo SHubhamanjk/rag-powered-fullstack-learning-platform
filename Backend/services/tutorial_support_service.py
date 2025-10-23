@@ -8,7 +8,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from utils.db import get_tutorial_support_collection
 from utils.timezone import get_current_time
 from utils.cache import cache_response, invalidate_cache
-from utils.llm import gemini_chat_completion, gemini_generate_content
+from utils.llm import gemini_chat_completion, gemini_generate_content, chat_completion_with_fallback
 from prompts import (
     PRETTIFY_NOTES_PROMPT, 
     DETAILED_NOTES_PROMPT, 
@@ -16,7 +16,8 @@ from prompts import (
     QUIZ_GENERATION_PROMPT,
     QUIZ_EVALUATION_PROMPT,
     MINDMAP_ANALYSIS_PROMPT,
-    MINDMAP_GENERATION_PROMPT
+    MINDMAP_GENERATION_PROMPT,
+    CONSOLIDATED_NOTES_PROMPT
 )
 from graphviz import Digraph
 import base64
@@ -47,7 +48,7 @@ def extract_title_from_link(tutorial_link: str) -> str:
     # Fallback for non-YouTube links
     return f"Tutorial - {tutorial_link[:50]}"
 
-async def create_tutorial_session(email: str, tutorial_link: str) -> Dict[str, Any]:
+async def create_tutorial_session(email: str, tutorial_link: str, group: str = "General") -> Dict[str, Any]:
     """Create a new tutorial support session or return existing one"""
     collection = get_tutorial_support_collection()
     
@@ -71,6 +72,7 @@ async def create_tutorial_session(email: str, tutorial_link: str) -> Dict[str, A
         "email": email,
         "tutorial_link": tutorial_link,
         "title": title,
+        "group": group,
         "notes": [],
         "ai_chat": [],
         "created_at": current_time.isoformat(),
@@ -306,6 +308,7 @@ async def get_all_tutorials(email: str) -> Dict[str, Any]:
             "tutorial_id": tutorial["tutorial_id"],
             "title": tutorial["title"],
             "tutorial_link": tutorial["tutorial_link"],
+            "group": tutorial.get("group", "General"),  # Default to "General" for old tutorials
             "notes_count": len(tutorial.get("notes", [])),
             "created_at": tutorial["created_at"],
             "updated_at": tutorial["updated_at"]
@@ -366,12 +369,41 @@ async def tutorial_ai_chat(tutorial_id: str, question: str) -> Dict[str, Any]:
     # Add current question
     messages.append({"role": "user", "content": question})
     
-    # Call Gemini via centralized LLM utility (Chat requires messages format)
-    answer = gemini_chat_completion(
-        messages=messages,
-        temperature=0.6,
-        max_tokens=400
-    )
+    # Call LLM with automatic fallback (Gemini -> Groq)
+    try:
+        # Remove system instruction from messages and pass separately
+        system_prompt = None
+        chat_messages = []
+        for msg in messages:
+            if msg["role"] == "system":
+                if system_prompt:
+                    system_prompt += "\n\n" + msg["content"]
+                else:
+                    system_prompt = msg["content"]
+            else:
+                chat_messages.append(msg)
+        
+        # Use fallback mechanism (try both Gemini and Groq)
+        # Prefer Gemini first to match study session behavior
+        answer, provider_used = chat_completion_with_fallback(
+            messages=chat_messages,
+            system_instruction=system_prompt,
+            temperature=0.6,
+            max_tokens=400,
+            prefer_gemini=True  # Try Gemini first like study sessions
+        )
+        
+        # Log which provider was used
+        print(f"[Tutorial Chat] Response generated using: {provider_used}")
+        
+        # Check if answer is None or empty
+        if not answer or not answer.strip():
+            answer = "I'm having trouble understanding that right now. Could you try rephrasing your question?"
+            
+    except Exception as e:
+        # Log the error for debugging (keep internal details in logs only)
+        print(f"Error in tutorial AI chat (all providers failed): {str(e)}")
+        answer = "I'm temporarily unable to respond. Please try again in a moment."
     
     # Save to chat history
     chat_entry = {
@@ -1211,5 +1243,125 @@ async def get_tutorial_mindmaps(tutorial_id: str) -> Dict[str, Any]:
     return {
         "tutorial_id": tutorial_id,
         "mindmaps": formatted_mindmaps
+    }
+
+async def edit_tutorial(tutorial_id: str, email: str, title: Optional[str] = None, group: Optional[str] = None) -> Dict[str, Any]:
+    """Edit tutorial title or group"""
+    collection = get_tutorial_support_collection()
+    
+    # Find tutorial
+    tutorial = collection.find_one({"tutorial_id": tutorial_id, "email": email})
+    if not tutorial:
+        raise ValueError("Tutorial not found or access denied")
+    
+    # Prepare update
+    update_fields = {}
+    if title:
+        update_fields["title"] = title
+    if group:
+        update_fields["group"] = group
+    
+    if not update_fields:
+        raise ValueError("No fields to update")
+    
+    # Update
+    update_fields["updated_at"] = get_current_time().isoformat()
+    collection.update_one(
+        {"tutorial_id": tutorial_id, "email": email},
+        {"$set": update_fields}
+    )
+    
+    # Invalidate cache
+    invalidate_cache(f"get_all_tutorials:{email}")
+    
+    return {
+        "message": "Tutorial updated successfully",
+        "tutorial_id": tutorial_id
+    }
+
+async def delete_tutorial(tutorial_id: str, email: str) -> Dict[str, Any]:
+    """Delete a tutorial"""
+    collection = get_tutorial_support_collection()
+    
+    # Find tutorial
+    tutorial = collection.find_one({"tutorial_id": tutorial_id, "email": email})
+    if not tutorial:
+        raise ValueError("Tutorial not found or access denied")
+    
+    # Delete
+    collection.delete_one({"tutorial_id": tutorial_id, "email": email})
+    
+    # Invalidate cache
+    invalidate_cache(f"get_all_tutorials:{email}")
+    
+    return {
+        "message": "Tutorial deleted successfully",
+        "tutorial_id": tutorial_id
+    }
+
+async def generate_consolidated_notes(email: str, group: str) -> Dict[str, Any]:
+    """Generate comprehensive notes from all tutorials in a group"""
+    collection = get_tutorial_support_collection()
+    
+    # Find all tutorials in this group for this user
+    tutorials = list(collection.find({
+        "email": email,
+        "group": group
+    }).sort("created_at", 1))  # Oldest first
+    
+    if not tutorials:
+        raise ValueError(f"No tutorials found in group '{group}'")
+    
+    # Collect all notes from all tutorials (ordered by creation date)
+    all_notes_content = []
+    
+    for tutorial in tutorials:
+        notes = tutorial.get("notes", [])
+        if notes:
+            all_notes_content.append(f"## {tutorial['title']}\n")
+            all_notes_content.append(f"**Tutorial Link:** {tutorial['tutorial_link']}\n\n")
+            
+            # Sort notes by timestamp
+            sorted_notes = sorted(notes, key=lambda x: x.get("timestamp", "0:00"))
+            
+            for note in sorted_notes:
+                timestamp = note.get("timestamp", "N/A")
+                content = note.get("content", "")
+                all_notes_content.append(f"**[{timestamp}]** {content}\n\n")
+            
+            all_notes_content.append("---\n\n")
+    
+    if not all_notes_content:
+        raise ValueError(f"No notes found in tutorials of group '{group}'")
+    
+    # Combine all notes
+    combined_notes = "".join(all_notes_content)
+    
+    # Generate comprehensive notes using AI with detailed prompt
+    user_prompt = f"""Subject Category: {group}
+
+Notes from {len(tutorials)} tutorial(s) (ordered chronologically from oldest to newest):
+
+{combined_notes}"""
+    
+    try:
+        consolidated_notes, provider_used = chat_completion_with_fallback(
+            messages=[{"role": "user", "content": user_prompt}],
+            system_instruction=CONSOLIDATED_NOTES_PROMPT,
+            temperature=0.6,
+            max_tokens=8000,  # Increased for detailed, comprehensive output (3000-8000+ words)
+            prefer_gemini=True
+        )
+        print(f"[Consolidated Notes] Generated using: {provider_used}")
+    except Exception as e:
+        print(f"[Consolidated Notes] Error: {str(e)}")
+        # Fallback: just return the combined notes
+        consolidated_notes = combined_notes
+    
+    return {
+        "group": group,
+        "notes_content": consolidated_notes,
+        "tutorials_included": len(tutorials),
+        "message": f"Consolidated notes generated from {len(tutorials)} tutorial(s)"
     }
 

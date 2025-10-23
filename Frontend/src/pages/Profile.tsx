@@ -633,7 +633,7 @@ const Profile = () => {
                           {dashboardData.study_sessions.length} total sessions
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="max-h-96 overflow-y-auto">
+                      <CardContent className="max-h-96 overflow-y-auto scrollbar-hide">
                         {dashboardData.study_sessions.length > 0 ? (
                           <div className="space-y-3">
                             {dashboardData.study_sessions.slice(0, 5).map((session) => (
@@ -681,7 +681,7 @@ const Profile = () => {
                           {dashboardData.tutorials.length} tutorials watched
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="max-h-96 overflow-y-auto">
+                      <CardContent className="max-h-96 overflow-y-auto scrollbar-hide">
                         {dashboardData.tutorials.length > 0 ? (
                           <div className="space-y-3">
                             {dashboardData.tutorials.slice(0, 5).map((tutorial) => (
@@ -728,7 +728,7 @@ const Profile = () => {
                           {dashboardData.todos.length} tasks created
                         </CardDescription>
             </CardHeader>
-                      <CardContent className="max-h-96 overflow-y-auto">
+                      <CardContent className="max-h-96 overflow-y-auto scrollbar-hide">
                         {dashboardData.todos.length > 0 ? (
                           <div className="space-y-3">
                             {dashboardData.todos.slice(0, 5).map((todo) => (
@@ -787,7 +787,7 @@ const Profile = () => {
                           {dashboardData.study_chats.length + dashboardData.friend_chats.length} total chats
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="max-h-96 overflow-y-auto">
+                      <CardContent className="max-h-96 overflow-y-auto scrollbar-hide">
                         <div className="space-y-3">
                           {[...dashboardData.study_chats, ...dashboardData.friend_chats]
                             .sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime())

@@ -13,7 +13,8 @@ import {
   Smile,
   Zap,
   Menu,
-  X
+  X,
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ const Home = () => {
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const [isNewChatMode, setIsNewChatMode] = useState(false); // Track if user wants a new chat
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sidebar state
+  const [searchQuery, setSearchQuery] = useState(""); // Search query state
 
   // Get the appropriate service based on mode
   const getService = () => mode === "study" ? chatService : friendChatService;
@@ -86,6 +88,18 @@ const Home = () => {
       setIsFetchingChats(false);
     }
   };
+
+  // Filter chats based on search query
+  const filteredChatList = chatList.filter((chat) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const titleMatch = chat.title.toLowerCase().includes(query);
+    
+    // Note: We can only search in title as messages are loaded separately
+    // For message content search, we'd need backend support
+    return titleMatch;
+  });
 
   // Load chat history
   const loadChatHistory = async (chatId: string) => {
@@ -276,11 +290,11 @@ const Home = () => {
   // Get welcome message based on mode
   const getWelcomeMessage = () => {
     if (isTemporaryMode) {
-      return "⚡ Temporary Chat Mode - Messages won't be saved! Ask anything freely. Click 'Exit Temp' button when done to return to your saved chats.";
+      return "⚡ Quick Chat Mode - Your privacy matters! These messages won't be saved anywhere. Perfect for sensitive questions or quick help. Click 'Exit Temp' when done.";
     } else if (mode === "study") {
-      return "Hi! I'm your AI study assistant. I'm here to help you learn, understand complex topics, and ace your studies. Ask me anything!";
+      return "🎓 Welcome to Study Mode! Get instant help with homework, understand tough concepts in simple words, prepare for exams, or learn anything new. No question is too small!";
     } else {
-      return "Hey there! I'm your AI friend, here to chat, listen, and support you. How are you doing today?";
+      return "👋 Hey! Need someone to talk to? I'm here to listen, chat about anything, help you destress, or just be a friendly voice. How's your day going?";
     }
   };
 
@@ -454,15 +468,28 @@ const Home = () => {
           </motion.div>
         </div>
 
+        {/* Search Bar */}
+        <div className="px-4 pb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search chats..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 glass border-border"
+            />
+          </div>
+        </div>
+
         {/* Chat History */}
-        <ScrollArea className="flex-1 p-4">
+        <ScrollArea className="flex-1 p-4 pt-0">
           {isFetchingChats ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
-          ) : chatList.length > 0 ? (
+          ) : filteredChatList.length > 0 ? (
             <div className="space-y-2">
-              {chatList.map((chat, index) => (
+              {filteredChatList.map((chat, index) => (
                 <motion.div
                   key={chat.chat_id}
                   initial={{ opacity: 0, x: -20 }}
@@ -528,9 +555,24 @@ const Home = () => {
                 </motion.div>
               ))}
             </div>
-          ) : (
+          ) : searchQuery.trim() ? (
             <div className="text-center py-8 text-sm text-muted-foreground">
-              No chats yet. Start a new conversation!
+              <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>No chats found for "{searchQuery}"</p>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => setSearchQuery("")}
+                className="mt-2"
+              >
+                Clear search
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-8 px-4 text-sm text-muted-foreground">
+              <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-50" />
+              <p className="font-medium mb-1">Ready to chat?</p>
+              <p className="text-xs">Start a conversation to get instant help with your studies or have a friendly chat anytime!</p>
             </div>
           )}
         </ScrollArea>
@@ -622,7 +664,7 @@ const Home = () => {
                     <h2 className="font-bold text-base sm:text-lg">Study Mode</h2>
                     <p className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
-                      AI-powered learning assistant
+                      Your 24/7 study buddy - Homework help & exam prep
                     </p>
                   </div>
                 </>
@@ -657,7 +699,7 @@ const Home = () => {
                     <h2 className="font-bold text-base sm:text-lg">Friend Mode</h2>
                     <p className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
                       <Heart className="w-3 h-3 animate-pulse" />
-                      Your caring companion
+                      Always here to listen - Chat anytime about anything
                     </p>
                   </div>
                 </>
@@ -676,10 +718,10 @@ const Home = () => {
                       ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90"
                       : "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:from-gray-200 hover:to-gray-300"
                   }`}
-                  title={isTemporaryMode ? "Exit Temporary Chat (messages will be deleted)" : "Start Temporary Chat (messages won't be saved)"}
+                  title={isTemporaryMode ? "Exit Private Chat (messages will be deleted)" : "Start Private Chat (messages won't be saved - perfect for sensitive questions)"}
                 >
                   <Zap className={`w-4 h-4 ${isTemporaryMode ? "animate-pulse" : ""}`} />
-                  <span className="hidden md:inline">{isTemporaryMode ? "Exit Temp" : "Temporary Chat"}</span>
+                  <span className="hidden md:inline">{isTemporaryMode ? "Exit Private" : "Private Chat"}</span>
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="lg:hidden">
@@ -759,7 +801,7 @@ const Home = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  {isTemporaryMode ? "Temporary Chat Mode" : mode === "study" ? "Ready to Learn!" : "Here for You!"}
+                  {isTemporaryMode ? "🔒 Private Chat Mode" : mode === "study" ? "🎯 Let's Ace Your Studies!" : "💙 I'm Here to Listen"}
                 </motion.h3>
                 <motion.p 
                   className="text-muted-foreground max-w-md mx-auto text-lg leading-relaxed"
@@ -848,8 +890,8 @@ const Home = () => {
               >
                 <div className="glass border border-border p-4 rounded-2xl">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Thinking...</span>
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground animate-pulse">Thinking...</span>
                   </div>
                 </div>
               </motion.div>

@@ -29,6 +29,9 @@ from endpoints import (
     
     # Contact Form
     contact,
+    
+    # Utility
+    utility,
 )
 
 app = FastAPI(
@@ -131,6 +134,15 @@ app.include_router(
 app.include_router(
     contact.router,
     tags=["Contact"]
+)
+
+# ============================================================================
+# UTILITY
+# ============================================================================
+app.include_router(
+    utility.router,
+    prefix="/utility",
+    tags=["Utility"]
 )
 
 # ============================================================================

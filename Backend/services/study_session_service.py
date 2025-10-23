@@ -12,7 +12,7 @@ import base64
 from utils.db import get_study_sessions_collection
 from utils.timezone import get_current_time
 from utils.cache import cache_response, invalidate_cache
-from utils.llm import gemini_chat_completion, gemini_generate_content
+from utils.llm import gemini_chat_completion, gemini_generate_content, chat_completion_with_fallback
 from prompts import (
     STUDY_SESSION_ASSISTANT_PROMPT,
     QUIZ_GENERATION_PROMPT,
@@ -391,7 +391,7 @@ STUDY SESSION INFORMATION:
         "content": question
     })
     
-    # Call Gemini via centralized LLM utility
+    # Call LLM with automatic fallback (Gemini -> Groq)
     # Extract system instruction from first message
     system_instruction = None
     user_messages = messages
@@ -399,12 +399,20 @@ STUDY SESSION INFORMATION:
         system_instruction = messages[0]["content"]
         user_messages = messages[1:]
     
-    ai_response = gemini_chat_completion(
-        messages=user_messages,
-        system_instruction=system_instruction,
-        temperature=0.7,
-        max_tokens=1500
-    )
+    try:
+        ai_response, provider_used = chat_completion_with_fallback(
+            messages=user_messages,
+            system_instruction=system_instruction,
+            temperature=0.7,
+            max_tokens=1500,
+            prefer_gemini=True  # Try Gemini first
+        )
+        print(f"[Study Session] Response generated using: {provider_used}")
+        
+    except Exception as e:
+        # Log error and provide fallback response
+        print(f"[Study Session] All providers failed: {str(e)}")
+        ai_response = "I'm temporarily unable to respond. Please try again in a moment."
     
     # Update chat history
     current_time = get_current_time().isoformat()

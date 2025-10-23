@@ -17,6 +17,8 @@ import {
   ChevronRight,
   Pencil,
   Menu,
+  Wand2,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { studySessionService } from "@/services/studySessionService";
+import utilityService from "@/services/utilityService";
 import MarkdownMessage from "@/components/MarkdownMessage";
 import type {
   StudySession,
@@ -48,6 +51,7 @@ const StudyMode = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Create session modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -56,6 +60,9 @@ const StudyMode = () => {
     grade: "",
     study_details: "",
   });
+  const [isRewritingSubject, setIsRewritingSubject] = useState(false);
+  const [isRewritingGrade, setIsRewritingGrade] = useState(false);
+  const [isRewritingDetails, setIsRewritingDetails] = useState(false);
   const [resourcesFile, setResourcesFile] = useState<File | null>(null);
   const [pyqFile, setPyqFile] = useState<File | null>(null);
   const [syllabusFile, setSyllabusFile] = useState<File | null>(null);
@@ -75,6 +82,7 @@ const StudyMode = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [isRewritingChat, setIsRewritingChat] = useState(false);
 
   // Mindmaps
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
@@ -127,6 +135,18 @@ const StudyMode = () => {
       setIsFetching(false);
     }
   };
+
+  // Filter sessions based on search query
+  const filteredSessions = sessions.filter((session) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const sessionNameMatch = session.session_name.toLowerCase().includes(query);
+    const subjectMatch = session.subject?.toLowerCase().includes(query);
+    const gradeMatch = session.grade?.toLowerCase().includes(query);
+    
+    return sessionNameMatch || subjectMatch || gradeMatch;
+  });
 
   const loadSessionDetails = async (sessionId: string) => {
     try {
@@ -182,6 +202,50 @@ const StudyMode = () => {
       throw new Error(
         "Couldn't read the PDF. Please ensure it's a valid text-based PDF (not a scanned image)."
       );
+    }
+  };
+
+  const rewriteSessionField = async (
+    field: 'subject' | 'grade' | 'study_details',
+    setIsRewriting: (value: boolean) => void
+  ) => {
+    const value = newSessionData[field];
+    if (!value.trim()) {
+      toast({
+        title: "Nothing to Rewrite",
+        description: "Please enter some text first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRewriting(true);
+    try {
+      const response = await utilityService.rewriteText({
+        text: value,
+        context: 'general'
+      });
+
+      if (response.improvement_applied) {
+        setNewSessionData({ ...newSessionData, [field]: response.rewritten_text });
+        toast({
+          title: "✨ Text Enhanced",
+          description: "Your text has been improved!",
+        });
+      } else {
+        toast({
+          title: "Already Perfect!",
+          description: "Your text looks great as is.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Rewrite Failed",
+        description: error.message || "Could not enhance text",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRewriting(false);
     }
   };
 
@@ -326,6 +390,46 @@ const StudyMode = () => {
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const rewriteChatInput = async () => {
+    if (!chatInput.trim()) {
+      toast({
+        title: "Nothing to Rewrite",
+        description: "Please enter some text first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRewritingChat(true);
+    try {
+      const response = await utilityService.rewriteText({
+        text: chatInput,
+        context: 'message'
+      });
+
+      if (response.improvement_applied) {
+        setChatInput(response.rewritten_text);
+        toast({
+          title: "✨ Text Enhanced",
+          description: "Your message has been improved!",
+        });
+      } else {
+        toast({
+          title: "Already Perfect!",
+          description: "Your message looks great as is.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Rewrite Failed",
+        description: error.message || "Could not enhance text",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRewritingChat(false);
     }
   };
 
@@ -589,21 +693,50 @@ const StudyMode = () => {
           </Button>
         </div>
 
-        <ScrollArea className="flex-1 p-4">
+        {/* Search Bar */}
+        <div className="px-4 pb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search sessions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 glass border-border"
+            />
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1 p-4 pt-0">
           {isFetching ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
-          ) : sessions.length === 0 ? (
+          ) : filteredSessions.length === 0 && searchQuery.trim() ? (
+            <div className="text-center py-8 px-4">
+              <Search className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+              <p className="text-sm text-muted-foreground">
+                No sessions found for "{searchQuery}"
+              </p>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => setSearchQuery("")}
+                className="mt-2"
+              >
+                Clear search
+              </Button>
+            </div>
+          ) : filteredSessions.length === 0 ? (
             <div className="text-center py-8 px-4">
               <Book className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                No study sessions yet. Create one to get started!
+              <p className="text-sm font-medium mb-1">Start Your Learning Journey!</p>
+              <p className="text-xs text-muted-foreground">
+                Create your first study session to get instant help, generate quizzes, and ace your exams!
               </p>
             </div>
           ) : (
           <div className="space-y-2">
-            {sessions.map((session) => (
+            {filteredSessions.map((session) => (
               <motion.div
                   key={session.session_id}
                 whileHover={{ x: 4 }}
@@ -768,17 +901,17 @@ const StudyMode = () => {
                     <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center mx-auto mb-4 opacity-80">
                       <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                     </div>
-                    <h3 className="text-lg sm:text-xl font-semibold mb-2">Ready to Learn!</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2">🚀 Your Personal Study AI is Ready!</h3>
                     <p className="text-sm sm:text-base text-muted-foreground mb-6">
-                      Ask anything about your study materials, syllabus, or PYQs. Get instant answers based on your uploaded content!
+                      Get instant answers from your notes & textbooks • Create practice tests • Generate visual mindmaps • Never study alone again!
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
                       {[
-                        "What are the most important concepts to understand?",
-                        "Help me create a study plan for this subject",
-                        "Explain the main topics in simple terms",
-                        "What questions are commonly asked in exams?",
-                        "Give me practice questions to test my knowledge",
+                        "What should I focus on to score well?",
+                        "Explain this topic like I'm 5 years old",
+                        "Create a study plan to ace my exams",
+                        "What questions might appear in my test?",
+                        "Give me practice problems to solve now",
                       ].map((question) => (
                         <motion.button
                           key={question}
@@ -831,8 +964,9 @@ const StudyMode = () => {
                     animate={{ opacity: 1 }}
                     className="flex justify-start"
                   >
-                    <div className="bg-card border border-border rounded-lg p-4">
+                    <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      <span className="text-sm text-muted-foreground animate-pulse">Thinking...</span>
                     </div>
                   </motion.div>
                 )}
@@ -845,20 +979,36 @@ const StudyMode = () => {
             {/* Chat Input */}
             <div className="p-3 sm:p-4 border-t border-border glass">
               <div className="max-w-4xl mx-auto flex gap-2">
-                <Input
-                  ref={chatInputRef}
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendChatMessage();
-                    }
-                  }}
-                  placeholder="Ask a question about your study materials..."
-                  className="flex-1 text-sm sm:text-base"
-                  disabled={isChatLoading}
-                />
+                <div className="relative flex-1">
+                  <Input
+                    ref={chatInputRef}
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendChatMessage();
+                      }
+                    }}
+                    placeholder="Ask anything... I've read all your study materials!"
+                    className="flex-1 text-sm sm:text-base pr-12"
+                    disabled={isChatLoading}
+                  />
+                  <Button
+                    onClick={rewriteChatInput}
+                    disabled={isRewritingChat || !chatInput.trim()}
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 hover:bg-primary/20"
+                    title="Enhance with AI"
+                  >
+                    {isRewritingChat ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    ) : (
+                      <Wand2 className="w-4 h-4 text-primary" />
+                    )}
+                  </Button>
+                </div>
                 <Button
                   onClick={sendChatMessage}
                   disabled={!chatInput.trim() || isChatLoading}
@@ -874,16 +1024,16 @@ const StudyMode = () => {
           <div className="flex-1 flex items-center justify-center px-4">
             <div className="text-center">
               <Book className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">No Session Selected</h3>
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">📚 Ready to Study Smarter?</h3>
               <p className="text-sm sm:text-base text-muted-foreground mb-4">
-                Select a study session or create a new one to get started
+                Select a session from the sidebar or create a new one to unlock AI-powered study help!
               </p>
               <Button
                 onClick={() => setShowCreateModal(true)}
                 className="gap-2 bg-gradient-to-r from-primary to-secondary"
               >
                 <Plus className="w-4 h-4" />
-                Create Study Session
+                Start Your First Session
               </Button>
             </div>
           </div>
@@ -905,6 +1055,13 @@ const StudyMode = () => {
         isLoading={isLoading}
         loadingMessage={loadingMessage}
         createSession={createSession}
+        rewriteSessionField={rewriteSessionField}
+        isRewritingSubject={isRewritingSubject}
+        setIsRewritingSubject={setIsRewritingSubject}
+        isRewritingGrade={isRewritingGrade}
+        setIsRewritingGrade={setIsRewritingGrade}
+        isRewritingDetails={isRewritingDetails}
+        setIsRewritingDetails={setIsRewritingDetails}
       />
 
       {/* Quizzes List Modal */}
@@ -1102,7 +1259,7 @@ const StudyMode = () => {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto scrollbar-hide">
                 <div className="space-y-6">
                   {mindmaps.map((mindmap, index) => (
                     <Card key={mindmap.mindmap_id} className="glass border-border">
@@ -1163,7 +1320,7 @@ const StudyMode = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-card border border-border rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto"
+              className="bg-card border border-border rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto scrollbar-hide"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold">Edit Study Session</h2>
@@ -1268,6 +1425,13 @@ interface CreateSessionModalProps {
   isLoading: boolean;
   loadingMessage: string;
   createSession: () => void;
+  rewriteSessionField: (field: 'subject' | 'grade' | 'study_details', setIsRewriting: (value: boolean) => void) => void;
+  isRewritingSubject: boolean;
+  setIsRewritingSubject: (value: boolean) => void;
+  isRewritingGrade: boolean;
+  setIsRewritingGrade: (value: boolean) => void;
+  isRewritingDetails: boolean;
+  setIsRewritingDetails: (value: boolean) => void;
 }
 
 const CreateSessionModal = ({
@@ -1284,6 +1448,13 @@ const CreateSessionModal = ({
   isLoading,
   loadingMessage,
   createSession,
+  rewriteSessionField,
+  isRewritingSubject,
+  setIsRewritingSubject,
+  isRewritingGrade,
+  setIsRewritingGrade,
+  isRewritingDetails,
+  setIsRewritingDetails,
 }: CreateSessionModalProps) => {
   return (
     <AnimatePresence>
@@ -1323,42 +1494,95 @@ const CreateSessionModal = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="subject">Subject / Topic *</Label>
-                  <Input
-                    id="subject"
-                    value={newSessionData.subject}
-                    onChange={(e) =>
-                      setNewSessionData({ ...newSessionData, subject: e.target.value })
-                    }
-                    placeholder="e.g., Machine Learning"
-                    disabled={isLoading}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="subject"
+                      value={newSessionData.subject}
+                      onChange={(e) =>
+                        setNewSessionData({ ...newSessionData, subject: e.target.value })
+                      }
+                      placeholder="e.g., Machine Learning"
+                      disabled={isLoading}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => rewriteSessionField('subject', setIsRewritingSubject)}
+                      disabled={isRewritingSubject || !newSessionData.subject.trim()}
+                      size="icon"
+                      variant="ghost"
+                      className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 hover:bg-primary/20"
+                      title="Enhance with AI"
+                    >
+                      {isRewritingSubject ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      ) : (
+                        <Wand2 className="w-4 h-4 text-primary" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="grade">Grade Level *</Label>
-                  <Input
-                    id="grade"
-                    value={newSessionData.grade}
-                    onChange={(e) =>
-                      setNewSessionData({ ...newSessionData, grade: e.target.value })
-                    }
-                    placeholder="e.g., 12, College, Graduate"
-                    disabled={isLoading}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="grade"
+                      value={newSessionData.grade}
+                      onChange={(e) =>
+                        setNewSessionData({ ...newSessionData, grade: e.target.value })
+                      }
+                      placeholder="e.g., 12, College, Graduate"
+                      disabled={isLoading}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => rewriteSessionField('grade', setIsRewritingGrade)}
+                      disabled={isRewritingGrade || !newSessionData.grade.trim()}
+                      size="icon"
+                      variant="ghost"
+                      className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 hover:bg-primary/20"
+                      title="Enhance with AI"
+                    >
+                      {isRewritingGrade ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      ) : (
+                        <Wand2 className="w-4 h-4 text-primary" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                       </div>
 
               <div className="space-y-2">
                 <Label htmlFor="details">Study Details</Label>
-                <Textarea
-                  id="details"
-                  value={newSessionData.study_details}
-                  onChange={(e) =>
-                    setNewSessionData({ ...newSessionData, study_details: e.target.value })
-                  }
-                  placeholder="What do you want to focus on? Any specific topics or areas?"
-                  className="resize-none h-24"
-                  disabled={isLoading}
-                        />
+                <div className="relative">
+                  <Textarea
+                    id="details"
+                    value={newSessionData.study_details}
+                    onChange={(e) =>
+                      setNewSessionData({ ...newSessionData, study_details: e.target.value })
+                    }
+                    placeholder="What do you want to focus on? Any specific topics or areas?"
+                    className="resize-none h-24 pr-12"
+                    disabled={isLoading}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => rewriteSessionField('study_details', setIsRewritingDetails)}
+                    disabled={isRewritingDetails || !newSessionData.study_details.trim()}
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-2 right-2 h-8 w-8 hover:bg-primary/20"
+                    title="Enhance with AI"
+                  >
+                    {isRewritingDetails ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    ) : (
+                      <Wand2 className="w-4 h-4 text-primary" />
+                    )}
+                  </Button>
+                </div>
                       </div>
 
               <div className="space-y-3">

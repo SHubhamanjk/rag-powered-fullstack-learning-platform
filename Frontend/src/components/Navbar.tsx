@@ -148,7 +148,7 @@ const Navbar = () => {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-16 bottom-0 w-64 sm:w-80 glass border-l border-border z-40 md:hidden overflow-y-auto"
+              className="fixed right-0 top-16 bottom-0 w-64 sm:w-80 glass border-l border-border z-40 md:hidden overflow-y-auto scrollbar-hide"
             >
               <div className="p-4 space-y-2">
                 {navItems.map((item) => {

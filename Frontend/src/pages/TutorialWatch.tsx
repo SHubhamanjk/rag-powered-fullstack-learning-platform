@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,7 +9,10 @@ import {
   Send,
   Loader2,
   Edit2,
+  Edit3,
   Trash2,
+  Search,
+  Filter,
   Clock,
   Download,
   Sparkles,
@@ -20,6 +23,9 @@ import {
   Save,
   X,
   Menu,
+  BookMarked,
+  Eye,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,8 +34,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { tutorialService } from "@/services/tutorialService";
+import utilityService from "@/services/utilityService";
 import MarkdownMessage from "@/components/MarkdownMessage";
 import type {
   Tutorial,
@@ -55,11 +69,34 @@ const TutorialWatch = () => {
   // Create tutorial
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [tutorialLink, setTutorialLink] = useState("");
+  const [tutorialGroup, setTutorialGroup] = useState("");
+  const [customNewGroup, setCustomNewGroup] = useState("");
+
+  // Filter and search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState("All");
+
+  // Edit/Delete
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTutorial, setEditingTutorial] = useState<Tutorial | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editGroup, setEditGroup] = useState("");
+  const [customEditGroup, setCustomEditGroup] = useState("");
+
+  // Notes preview modal
+  const [showNotesPreview, setShowNotesPreview] = useState(false);
+  const [previewNotes, setPreviewNotes] = useState("");
+  const [notesType, setNotesType] = useState<"prettified" | "detailed" | "consolidated">("prettified");
+
+  // Consolidated notes generation
+  const [isGeneratingConsolidated, setIsGeneratingConsolidated] = useState(false);
+  const [isEditingPreview, setIsEditingPreview] = useState(false);
 
   // Notes
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState("");
   const [currentVideoTime, setCurrentVideoTime] = useState(0);
+  const [isRewritingNote, setIsRewritingNote] = useState(false);
   const [videoDuration, setVideoDuration] = useState(0);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteText, setEditNoteText] = useState("");
@@ -93,6 +130,7 @@ const TutorialWatch = () => {
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load YouTube IFrame API
   useEffect(() => {
@@ -217,6 +255,136 @@ const TutorialWatch = () => {
     }
   };
 
+  // Get unique groups from tutorials
+  const availableGroups = useMemo(() => {
+    const groups = new Set(tutorials.map((t) => t.group));
+    return ["All", ...Array.from(groups).sort()];
+  }, [tutorials]);
+
+  // Filter tutorials based on search and group
+  const filteredTutorials = useMemo(() => {
+    return tutorials.filter((tutorial) => {
+      // Group filter
+      if (selectedGroupFilter !== "All" && tutorial.group !== selectedGroupFilter) {
+        return false;
+      }
+      
+      // Search query filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        return (
+          tutorial.title.toLowerCase().includes(query) ||
+          tutorial.group.toLowerCase().includes(query) ||
+          tutorial.tutorial_link.toLowerCase().includes(query)
+        );
+      }
+      
+      return true;
+    });
+  }, [tutorials, selectedGroupFilter, searchQuery]);
+
+  const openEditModal = (tutorial: Tutorial, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingTutorial(tutorial);
+    setEditTitle(tutorial.title);
+    setEditGroup(tutorial.group);
+    setShowEditModal(true);
+  };
+
+  const editTutorial = async () => {
+    if (!editingTutorial) return;
+    
+    // Use custom group if "custom" is selected, otherwise use selected group
+    const groupToUse = editGroup === "custom" ? customEditGroup.trim() : editGroup;
+    
+    if (!editTitle.trim() && !groupToUse) {
+      toast({
+        title: "Error",
+        description: "Please provide at least one field to update",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await tutorialService.editTutorial(editingTutorial.tutorial_id, {
+        title: editTitle.trim() || undefined,
+        group: groupToUse || undefined,
+      });
+
+      toast({
+        title: "Tutorial Updated",
+        description: "Your changes have been saved!",
+      });
+
+      // Update local state
+      setTutorials((prev) =>
+        prev.map((t) =>
+          t.tutorial_id === editingTutorial.tutorial_id
+            ? { ...t, title: editTitle.trim() || t.title, group: groupToUse || t.group }
+            : t
+        )
+      );
+
+      if (selectedTutorial?.tutorial_id === editingTutorial.tutorial_id) {
+        setSelectedTutorial({
+          ...selectedTutorial,
+          title: editTitle.trim() || selectedTutorial.title,
+          group: groupToUse || selectedTutorial.group,
+        });
+      }
+
+      setShowEditModal(false);
+      setEditingTutorial(null);
+      setEditTitle("");
+      setEditGroup("");
+      setCustomEditGroup("");
+    } catch (error: any) {
+      toast({
+        title: "Failed to Update",
+        description: error.message || "Could not update tutorial.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteTutorial = async (tutorialId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!confirm("Are you sure you want to delete this tutorial? This action cannot be undone.")) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await tutorialService.deleteTutorial(tutorialId);
+
+      toast({
+        title: "Tutorial Deleted",
+        description: "The tutorial has been removed.",
+      });
+
+      // Update local state
+      setTutorials((prev) => prev.filter((t) => t.tutorial_id !== tutorialId));
+
+      // If the deleted tutorial was selected, clear selection
+      if (selectedTutorial?.tutorial_id === tutorialId) {
+        setSelectedTutorial(null);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to Delete",
+        description: error.message || "Could not delete tutorial.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const createTutorial = async () => {
     if (!tutorialLink.trim()) {
       toast({
@@ -227,10 +395,23 @@ const TutorialWatch = () => {
       return;
     }
 
+    // Use custom group if "custom" is selected, otherwise use selected group
+    const groupToUse = tutorialGroup === "custom" ? customNewGroup.trim() : tutorialGroup;
+
+    if (!groupToUse) {
+      toast({
+        title: "Error",
+        description: "Please select or enter a group",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await tutorialService.createTutorial({
         tutorial_link: tutorialLink,
+        group: groupToUse,
       });
 
       toast({
@@ -238,20 +419,29 @@ const TutorialWatch = () => {
         description: `"${response.title}" is ready to watch!`,
       });
 
+      // Save link and group before clearing
+      const savedLink = tutorialLink.trim();
+      const savedGroup = groupToUse;
+      
       setTutorialLink("");
+      setTutorialGroup("");
+      setCustomNewGroup("");
       setShowCreateModal(false);
       
       // Fetch updated tutorials list
-      const tutorialsResponse = await tutorialService.getMyTutorials();
-      setTutorials(tutorialsResponse.tutorials);
+      await fetchTutorials();
       
-      // Automatically select and open the newly created tutorial
-      const newTutorial = tutorialsResponse.tutorials.find(
-        t => t.tutorial_id === response.tutorial_id
-      );
-      if (newTutorial) {
-        setSelectedTutorial(newTutorial);
-      }
+      // Immediately auto-select the new tutorial
+      const newTutorial = {
+        tutorial_id: response.tutorial_id,
+        title: response.title,
+        tutorial_link: savedLink,
+        group: savedGroup,
+        notes_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      setSelectedTutorial(newTutorial);
     } catch (error: any) {
       toast({
         title: "Failed to Create Tutorial",
@@ -266,13 +456,33 @@ const TutorialWatch = () => {
   const getYouTubeVideoId = (url: string): string | null => {
     try {
       const urlObj = new URL(url);
+      
+      // Handle youtu.be short links
       if (urlObj.hostname.includes("youtu.be")) {
-        return urlObj.pathname.slice(1);
+        return urlObj.pathname.slice(1).split('?')[0]; // Remove query params
       }
+      
+      // Handle youtube.com links
       if (urlObj.hostname.includes("youtube.com")) {
-        return urlObj.searchParams.get("v");
+        // Handle /live/VIDEO_ID format
+        if (urlObj.pathname.includes("/live/")) {
+          return urlObj.pathname.split("/live/")[1].split('?')[0];
+        }
+        // Handle /watch?v=VIDEO_ID format
+        if (urlObj.searchParams.has("v")) {
+          return urlObj.searchParams.get("v");
+        }
+        // Handle /embed/VIDEO_ID format
+        if (urlObj.pathname.includes("/embed/")) {
+          return urlObj.pathname.split("/embed/")[1].split('?')[0];
+        }
+        // Handle /v/VIDEO_ID format
+        if (urlObj.pathname.includes("/v/")) {
+          return urlObj.pathname.split("/v/")[1].split('?')[0];
+        }
       }
-    } catch {
+    } catch (e) {
+      console.error("Error parsing YouTube URL:", e);
       return null;
     }
     return null;
@@ -283,6 +493,21 @@ const TutorialWatch = () => {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
+
+  // Auto-resize textarea
+  const autoResizeTextarea = useCallback(() => {
+    const textarea = noteTextareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, 60), 200);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, []);
+
+  // Auto-resize on note change
+  useEffect(() => {
+    autoResizeTextarea();
+  }, [newNote, autoResizeTextarea]);
 
   const fetchNotes = async () => {
     if (!selectedTutorial) return;
@@ -305,6 +530,46 @@ const TutorialWatch = () => {
       }
     } catch (error: any) {
       // No chat history yet, that's okay
+    }
+  };
+
+  const rewriteNote = async () => {
+    if (!newNote.trim()) {
+      toast({
+        title: "Nothing to Rewrite",
+        description: "Please enter some text first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRewritingNote(true);
+    try {
+      const response = await utilityService.rewriteText({
+        text: newNote,
+        context: 'note'
+      });
+
+      if (response.improvement_applied) {
+        setNewNote(response.rewritten_text);
+        toast({
+          title: "✨ Text Enhanced",
+          description: "Your note has been improved!",
+        });
+      } else {
+        toast({
+          title: "Already Perfect!",
+          description: "Your note looks great as is.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Rewrite Failed",
+        description: error.message || "Could not enhance text",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRewritingNote(false);
     }
   };
 
@@ -334,6 +599,10 @@ const TutorialWatch = () => {
       });
 
       setNewNote("");
+      // Reset textarea height
+      if (noteTextareaRef.current) {
+        noteTextareaRef.current.style.height = '60px';
+      }
       await fetchNotes();
     } catch (error: any) {
       toast({
@@ -402,12 +671,15 @@ const TutorialWatch = () => {
         tutorial_id: selectedTutorial.tutorial_id,
       });
 
-      // Export directly to PDF
-      exportNotesToPDF(response.prettified_notes, selectedTutorial.title, "prettified");
+      // Show preview modal instead of direct download
+      setPreviewNotes(response.prettified_notes);
+      setNotesType("prettified");
+      setIsEditingPreview(false);
+      setShowNotesPreview(true);
 
       toast({
         title: "Notes Organized",
-        description: "Your notes have been beautifully formatted!",
+        description: "Review and edit before downloading!",
       });
     } catch (error: any) {
       toast({
@@ -429,12 +701,15 @@ const TutorialWatch = () => {
         tutorial_id: selectedTutorial.tutorial_id,
       });
 
-      // Export directly to PDF
-      exportNotesToPDF(response.detailed_notes, selectedTutorial.title, "detailed");
+      // Show preview modal instead of direct download
+      setPreviewNotes(response.detailed_notes);
+      setNotesType("detailed");
+      setIsEditingPreview(false);
+      setShowNotesPreview(true);
 
       toast({
         title: "Detailed Notes Created",
-        description: "Comprehensive study notes are ready!",
+        description: "Review and edit before downloading!",
       });
     } catch (error: any) {
       toast({
@@ -444,6 +719,59 @@ const TutorialWatch = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const downloadPreviewedNotes = () => {
+    if (!selectedTutorial && notesType !== "consolidated") return;
+    if (!previewNotes) return;
+    
+    const title = notesType === "consolidated" 
+      ? `${selectedGroupFilter} - All-in-One Notes`
+      : selectedTutorial!.title;
+    
+    exportNotesToPDF(previewNotes, title, notesType);
+    setShowNotesPreview(false);
+    toast({
+      title: "Notes Downloaded",
+      description: "Your notes have been saved as PDF!",
+    });
+  };
+
+  const generateConsolidatedNotes = async () => {
+    if (selectedGroupFilter === "All" || !selectedGroupFilter) {
+      toast({
+        title: "Select a Group",
+        description: "Please filter by a specific group first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingConsolidated(true);
+    try {
+      const response = await tutorialService.generateConsolidatedNotes({
+        group: selectedGroupFilter,
+      });
+
+      // Show preview modal
+      setPreviewNotes(response.notes_content);
+      setNotesType("consolidated");
+      setIsEditingPreview(false);
+      setShowNotesPreview(true);
+
+      toast({
+        title: "All-in-One Notes Ready!",
+        description: `Combined ${response.tutorials_included} tutorial(s) into one complete guide. Review and download!`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Could not generate all-in-one notes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingConsolidated(false);
     }
   };
 
@@ -461,7 +789,7 @@ const TutorialWatch = () => {
     });
   };
 
-  const exportNotesToPDF = (content: string, title: string, type: "notes" | "prettified" | "detailed") => {
+  const exportNotesToPDF = (content: string, title: string, type: "notes" | "prettified" | "detailed" | "consolidated") => {
     // Create a hidden iframe for printing
     const iframe = document.createElement("iframe");
     iframe.style.position = "absolute";
@@ -493,7 +821,7 @@ const TutorialWatch = () => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${title} - ${type === "notes" ? "Notes" : type === "prettified" ? "Organized Notes" : "Detailed Study Notes"}</title>
+          <title>${title} - ${type === "notes" ? "Notes" : type === "prettified" ? "Organized Notes" : type === "consolidated" ? "All-in-One Notes" : "Detailed Study Notes"}</title>
           <style>
             @page {
               margin: 2cm;
@@ -555,7 +883,7 @@ const TutorialWatch = () => {
           <div class="header">
             <h1>${title}</h1>
             <p style="color: #6b7280; margin: 5px 0;">
-              ${type === "notes" ? "Study Notes" : type === "prettified" ? "Organized Notes" : "Detailed Study Notes"}
+              ${type === "notes" ? "Study Notes" : type === "prettified" ? "Organized Notes" : type === "consolidated" ? "All-in-One Notes" : "Detailed Study Notes"}
             </p>
             <p style="color: #9ca3af; font-size: 0.875em;">
               Generated on ${new Date().toLocaleDateString("en-US", {
@@ -782,7 +1110,7 @@ const TutorialWatch = () => {
           >
             <div className="flex-1">
               <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-1 sm:mb-2">Learning Hub</h1>
-              <p className="text-sm sm:text-base text-muted-foreground">Watch tutorials and take smart notes</p>
+              <p className="text-sm sm:text-base text-muted-foreground">Watch, Learn, Remember - Your AI study companion for videos</p>
             </div>
             <Button
               onClick={() => setShowCreateModal(true)}
@@ -792,6 +1120,42 @@ const TutorialWatch = () => {
               <Plus className="w-4 h-4 mr-2" />
               New Tutorial
             </Button>
+          </motion.div>
+
+          {/* Search and Filter */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4"
+          >
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search tutorials..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 glass border-border"
+              />
+            </div>
+            
+            {/* Group Filter */}
+            <div className="relative w-full sm:w-48">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <select
+                value={selectedGroupFilter}
+                onChange={(e) => setSelectedGroupFilter(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 glass border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {availableGroups.map((group) => (
+                  <option key={group} value={group}>
+                    {group === "All" ? "All Groups" : group}
+                  </option>
+                ))}
+              </select>
+            </div>
           </motion.div>
 
           {/* Create Tutorial Modal */}
@@ -823,6 +1187,34 @@ const TutorialWatch = () => {
                         disabled={isLoading}
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="group">Category / Group *</Label>
+                      <Select value={tutorialGroup} onValueChange={setTutorialGroup} disabled={isLoading}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select or create category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableGroups.filter(g => g !== "All").map((group) => (
+                            <SelectItem key={group} value={group}>
+                              {group}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom">+ Add New Group</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {tutorialGroup === "custom" && (
+                        <Input
+                          value={customNewGroup}
+                          onChange={(e) => setCustomNewGroup(e.target.value)}
+                          placeholder="Enter new group name"
+                          disabled={isLoading}
+                          className="mt-2"
+                        />
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        💡 Group similar tutorials to generate comprehensive study guides later
+                      </p>
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         onClick={createTutorial}
@@ -845,6 +1237,219 @@ const TutorialWatch = () => {
             )}
           </AnimatePresence>
 
+          {/* Edit Tutorial Modal */}
+          <AnimatePresence>
+            {showEditModal && editingTutorial && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                onClick={() => !isLoading && setShowEditModal(false)}
+              >
+                <motion.div
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.95 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-md glass rounded-2xl p-6 border border-border"
+                >
+                  <h2 className="text-xl font-bold mb-4">Edit Tutorial</h2>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-title">Title</Label>
+                      <Input
+                        id="edit-title"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        placeholder="Tutorial title"
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-group">Category / Group</Label>
+                      <Select value={editGroup} onValueChange={setEditGroup} disabled={isLoading}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select or create category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableGroups.filter(g => g !== "All").map((group) => (
+                            <SelectItem key={group} value={group}>
+                              {group}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom">+ Add New Group</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {editGroup === "custom" && (
+                        <Input
+                          value={customEditGroup}
+                          onChange={(e) => setCustomEditGroup(e.target.value)}
+                          placeholder="Enter new group name"
+                          disabled={isLoading}
+                          className="mt-2"
+                        />
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={editTutorial}
+                        disabled={isLoading}
+                        className="flex-1 bg-gradient-to-r from-primary to-secondary"
+                      >
+                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+                      </Button>
+                      <Button
+                        onClick={() => setShowEditModal(false)}
+                        variant="outline"
+                        disabled={isLoading}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Notes Preview Modal */}
+          <AnimatePresence>
+            {showNotesPreview && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                onClick={() => !isLoading && setShowNotesPreview(false)}
+              >
+                <motion.div
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.95 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-4xl max-h-[90vh] glass rounded-2xl border border-border flex flex-col"
+                >
+                  {/* Header */}
+                  <div className="p-6 border-b border-border flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold">
+                        {notesType === "prettified" 
+                          ? "Organized Notes" 
+                          : notesType === "consolidated"
+                          ? `All-in-One Notes - ${selectedGroupFilter}`
+                          : "Detailed Study Notes"}
+                      </h2>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {notesType === "consolidated"
+                          ? "Complete notes combining all tutorials in this group"
+                          : "Review and edit your notes before downloading"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsEditingPreview(!isEditingPreview)}
+                      >
+                        {isEditingPreview ? (
+                          <>
+                            <Eye className="w-4 h-4 mr-2" />
+                            Preview
+                          </>
+                        ) : (
+                          <>
+                            <Edit3 className="w-4 h-4 mr-2" />
+                            Edit
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowNotesPreview(false)}
+                      >
+                        <X className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div 
+                    className="flex-1 overflow-y-auto scrollbar-hide p-6"
+                    style={{ 
+                      scrollbarWidth: 'none', 
+                      msOverflowStyle: 'none' 
+                    }}
+                  >
+                {isEditingPreview ? (
+                  <Textarea
+                    value={previewNotes}
+                    onChange={(e) => setPreviewNotes(e.target.value)}
+                    className="w-full min-h-[500px] font-mono text-sm glass border-border resize-none scrollbar-hide"
+                    placeholder="Your notes will appear here..."
+                  />
+                ) : (
+                  <div className="prose prose-invert max-w-none">
+                    <MarkdownMessage content={previewNotes} />
+                  </div>
+                )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="p-6 border-t border-border flex gap-3">
+                    <Button
+                      onClick={downloadPreviewedNotes}
+                      disabled={isLoading || !previewNotes.trim()}
+                      className="flex-1 bg-gradient-to-r from-primary to-secondary"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download as PDF
+                    </Button>
+                    <Button
+                      onClick={() => setShowNotesPreview(false)}
+                      variant="outline"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Generate Comprehensive Notes Button */}
+          {selectedGroupFilter !== "All" && filteredTutorials.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 }}
+              className="mb-4"
+            >
+              <Button
+                onClick={generateConsolidatedNotes}
+                disabled={isGeneratingConsolidated}
+                className="w-full bg-gradient-to-r from-primary via-purple-600 to-secondary hover:opacity-90"
+                size="lg"
+              >
+                {isGeneratingConsolidated ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Generating All-in-One Notes...
+                  </>
+                ) : (
+                  <>
+                    <BookMarked className="w-5 h-5 mr-2" />
+                    Generate All-in-One Notes
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                Combine all {filteredTutorials.length} tutorial(s) from "{selectedGroupFilter}" into one complete guide
+              </p>
+            </motion.div>
+          )}
+
           {/* Tutorials Grid */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -855,21 +1460,45 @@ const TutorialWatch = () => {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
-            ) : tutorials.length > 0 ? (
+            ) : filteredTutorials.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {tutorials.map((tutorial) => (
+                {filteredTutorials.map((tutorial) => (
                   <motion.div
                     key={tutorial.tutorial_id}
                     whileHover={{ y: -4 }}
                     onClick={() => setSelectedTutorial(tutorial)}
-                    className="cursor-pointer"
+                    className="cursor-pointer relative group"
                   >
                     <Card className="glass border-border hover:border-primary/50 transition-all">
                       <CardContent className="p-3 sm:p-4">
-                        <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg mb-2 sm:mb-3 flex items-center justify-center">
+                        <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg mb-2 sm:mb-3 flex items-center justify-center relative">
                           <Play className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
+                          {/* Edit/Delete buttons - shown on hover */}
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="w-7 h-7"
+                              onClick={(e) => openEditModal(tutorial, e)}
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="destructive"
+                              className="w-7 h-7"
+                              onClick={(e) => deleteTutorial(tutorial.tutorial_id, e)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
-                        <h3 className="text-sm sm:text-base font-semibold mb-1 sm:mb-2 line-clamp-2">{tutorial.title}</h3>
+                        <div className="flex items-center justify-between mb-1 sm:mb-2">
+                          <h3 className="text-sm sm:text-base font-semibold line-clamp-2 flex-1">{tutorial.title}</h3>
+                        </div>
+                        <Badge variant="secondary" className="mb-2 text-[10px]">
+                          {tutorial.group}
+                        </Badge>
                         <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
                           <FileText className="w-3 h-3" />
                           <span>{tutorial.notes_count} notes</span>
@@ -881,13 +1510,30 @@ const TutorialWatch = () => {
                   </motion.div>
                 ))}
               </div>
-            ) : (
+            ) : tutorials.length === 0 ? (
               <Card className="glass border-border">
                 <CardContent className="p-8 sm:p-12 text-center">
                   <Play className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-base sm:text-lg font-semibold mb-2">No tutorials yet</h3>
+                  <h3 className="text-base sm:text-lg font-semibold mb-2">🎥 Start Learning from Videos!</h3>
                   <p className="text-xs sm:text-sm text-muted-foreground mb-4">
-                    Start your learning journey by adding a tutorial!
+                    Add any tutorial video and get AI-powered notes, quizzes, and mindmaps automatically!
+                  </p>
+                  <Button
+                    onClick={() => setShowCreateModal(true)}
+                    className="bg-gradient-to-r from-primary to-secondary"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Your First Tutorial
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="glass border-border">
+                <CardContent className="p-8 sm:p-12 text-center">
+                  <Search className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-base sm:text-lg font-semibold mb-2">No tutorials found</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4">
+                    Try adjusting your search or filter criteria
                   </p>
                   <Button
                     onClick={() => setShowCreateModal(true)}
@@ -1086,15 +1732,32 @@ const TutorialWatch = () => {
                 <CardContent className="p-2 sm:p-3 space-y-2 ">
                   <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground mb-1">
                     <Clock className="w-3 h-3" />
-                    <span>Current time: {formatTime(currentVideoTime)}</span>
+                    <span>At {formatTime(currentVideoTime)}</span>
                   </div>
-                  <Textarea
-                    placeholder="Write your note... (timestamp will be captured automatically)"
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    rows={2}
-                    className="resize-none"
-                  />
+                  <div className="relative">
+                    <Textarea
+                      ref={noteTextareaRef}
+                      placeholder="What's important here? Jot it down... (timestamp saved automatically)"
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      className="resize-none pr-12 min-h-[60px] max-h-[200px] overflow-y-auto scrollbar-hide transition-all duration-150"
+                      style={{ height: '60px' }}
+                    />
+                    <Button
+                      onClick={rewriteNote}
+                      disabled={isRewritingNote || !newNote.trim()}
+                      size="icon"
+                      variant="ghost"
+                      className="absolute top-2 right-2 h-8 w-8 hover:bg-primary/20"
+                      title="Enhance with AI"
+                    >
+                      {isRewritingNote ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      ) : (
+                        <Wand2 className="w-4 h-4 text-primary" />
+                      )}
+                    </Button>
+                  </div>
                   <Button
                     onClick={addNote}
                     disabled={isLoading}
@@ -1143,6 +1806,7 @@ const TutorialWatch = () => {
                             value={editNoteText}
                             onChange={(e) => setEditNoteText(e.target.value)}
                             rows={2}
+                            className="scrollbar-hide"
                           />
                           <div className="flex gap-2">
                             <Button
@@ -1214,7 +1878,8 @@ const TutorialWatch = () => {
                 {chatMessages.length === 0 ? (
                   <div className="text-center text-muted-foreground text-sm py-8">
                     <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p>Ask me anything about this tutorial!</p>
+                    <p className="font-medium mb-1">Got Questions?</p>
+                    <p className="text-xs">Ask me anything about this video - I can explain, clarify, or dive deeper!</p>
                   </div>
                 ) : (
                   chatMessages.map((msg, idx) => (
@@ -1240,8 +1905,9 @@ const TutorialWatch = () => {
                 )}
                 {isChatLoading && (
                   <div className="flex justify-start">
-                    <div className="glass border border-border p-3 rounded-2xl">
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    <div className="glass border border-border p-3 rounded-2xl flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      <span className="text-sm text-muted-foreground animate-pulse">Thinking...</span>
                     </div>
                   </div>
                 )}
@@ -1370,7 +2036,7 @@ const TutorialWatch = () => {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto scrollbar-hide">
                 <div className="space-y-6">
                   {mindmaps.map((mindmap, index) => (
                     <Card key={mindmap.mindmap_id} className="glass border-border">
@@ -1441,7 +2107,7 @@ const TutorialWatch = () => {
               </div>
 
               {/* Quiz List */}
-              <div className="p-6 max-h-[60vh] overflow-y-auto">
+              <div className="p-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
                 <div className="space-y-4">
                   {quizzes.map((quiz) => (
                     <Card key={quiz.quiz_id} className="glass border-border hover:border-primary/50 transition-colors cursor-pointer" onClick={() => navigate(`/quiz/${quiz.quiz_id}`)}>
@@ -1482,6 +2148,111 @@ const TutorialWatch = () => {
                     </Card>
                   ))}
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Notes Preview Modal */}
+      <AnimatePresence>
+        {showNotesPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => !isLoading && setShowNotesPreview(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-4xl max-h-[90vh] glass rounded-2xl border border-border flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-border flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold">
+                    {notesType === "prettified" 
+                      ? "Organized Notes" 
+                      : notesType === "consolidated"
+                      ? `All-in-One Notes - ${selectedGroupFilter}`
+                      : "Detailed Study Notes"}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {notesType === "consolidated"
+                      ? "Complete notes combining all tutorials in this group"
+                      : "Review and edit your notes before downloading"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingPreview(!isEditingPreview)}
+                  >
+                    {isEditingPreview ? (
+                      <>
+                        <Eye className="w-4 h-4 mr-2" />
+                        Preview
+                      </>
+                    ) : (
+                      <>
+                        <Edit3 className="w-4 h-4 mr-2" />
+                        Edit
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowNotesPreview(false)}
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div 
+                className="flex-1 overflow-y-auto scrollbar-hide p-6"
+                style={{ 
+                  scrollbarWidth: 'none', 
+                  msOverflowStyle: 'none' 
+                }}
+              >
+                {isEditingPreview ? (
+                  <Textarea
+                    value={previewNotes}
+                    onChange={(e) => setPreviewNotes(e.target.value)}
+                    className="w-full min-h-[500px] font-mono text-sm glass border-border resize-none scrollbar-hide"
+                    placeholder="Your notes will appear here..."
+                  />
+                ) : (
+                  <div className="prose prose-invert max-w-none">
+                    <MarkdownMessage content={previewNotes} />
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="p-6 border-t border-border flex gap-3">
+                <Button
+                  onClick={downloadPreviewedNotes}
+                  disabled={isLoading || !previewNotes.trim()}
+                  className="flex-1 bg-gradient-to-r from-primary to-secondary"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download as PDF
+                </Button>
+                <Button
+                  onClick={() => setShowNotesPreview(false)}
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
               </div>
             </motion.div>
           </motion.div>

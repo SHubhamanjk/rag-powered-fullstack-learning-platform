@@ -15,6 +15,8 @@ import {
   Save,
   Search,
   Filter,
+  Wand2,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,12 +34,25 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { todoService } from "@/services/todoService";
+import utilityService from "@/services/utilityService";
 import MarkdownMessage from "@/components/MarkdownMessage";
 import type { Todo, TodoStatus, ChatMessage } from "@/types/todo";
+import quotesData from "@/data/quotes.json";
+
+// Get daily quote based on current date
+const getDailyQuote = () => {
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+  const index = dayOfYear % quotesData.quotes.length;
+  return quotesData.quotes[index];
+};
 
 const TodoPage = () => {
   const { toast } = useToast();
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Get daily quote (memoized)
+  const dailyQuote = getDailyQuote();
   
   // State
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -57,6 +72,8 @@ const TodoPage = () => {
   const [customNewCategory, setCustomNewCategory] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]); // Default to today in YYYY-MM-DD format
+  const [isRewritingNewTask, setIsRewritingNewTask] = useState(false);
+  const [isRewritingNewDesc, setIsRewritingNewDesc] = useState(false);
 
   // Edit todo
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -65,6 +82,8 @@ const TodoPage = () => {
   const [customEditCategory, setCustomEditCategory] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editDate, setEditDate] = useState("");
+  const [isRewritingEditTask, setIsRewritingEditTask] = useState(false);
+  const [isRewritingEditDesc, setIsRewritingEditDesc] = useState(false);
 
   // AI Chat helper
   const [showAIChat, setShowAIChat] = useState(false);
@@ -188,6 +207,51 @@ const TodoPage = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const rewriteText = async (
+    text: string,
+    setText: (value: string) => void,
+    setIsRewriting: (value: boolean) => void,
+    context: 'todo' | 'message' = 'todo'
+  ) => {
+    if (!text.trim()) {
+      toast({
+        title: "Nothing to Rewrite",
+        description: "Please enter some text first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRewriting(true);
+    try {
+      const response = await utilityService.rewriteText({
+        text,
+        context
+      });
+
+      if (response.improvement_applied) {
+        setText(response.rewritten_text);
+        toast({
+          title: "✨ Text Enhanced",
+          description: "Your text has been improved!",
+        });
+      } else {
+        toast({
+          title: "Already Perfect!",
+          description: "Your text looks great as is.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Rewrite Failed",
+        description: error.message || "Could not enhance text",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRewriting(false);
+    }
+  };
 
   const createTodo = async () => {
     if (!newTask.trim()) {
@@ -582,10 +646,10 @@ const TodoPage = () => {
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
         >
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-1 sm:mb-2">Smart To-Do</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">Manage your tasks with AI assistance</p>
-          </div>
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-1 sm:mb-2">Smart To-Do</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">Get things done faster with AI-powered task management</p>
+            </div>
           <Button
             onClick={() => setIsCreating(true)}
             className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 w-full sm:w-auto"
@@ -594,6 +658,36 @@ const TodoPage = () => {
             <Plus className="w-4 h-4 mr-2" />
             New Task
           </Button>
+        </motion.div>
+
+        {/* Daily Motivational Quote - "Aaj ka gyan" */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card className="glass border-primary/30 bg-gradient-to-br from-primary/10 via-purple-500/5 to-secondary/10">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2">
+                    आज का ज्ञान ✨
+                  </h3>
+                  <p className="text-sm sm:text-base text-foreground/90 leading-relaxed mb-2">
+                    "{dailyQuote.text}"
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground italic">
+                    — {dailyQuote.author}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Create Todo Modal */}
@@ -617,13 +711,31 @@ const TodoPage = () => {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="task">Task *</Label>
-                    <Input
-                      id="task"
-                      value={newTask}
-                      onChange={(e) => setNewTask(e.target.value)}
-                      placeholder="Enter task name"
-                      disabled={isLoading}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="task"
+                        value={newTask}
+                        onChange={(e) => setNewTask(e.target.value)}
+                        placeholder="Enter task name"
+                        disabled={isLoading}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => rewriteText(newTask, setNewTask, setIsRewritingNewTask, 'todo')}
+                        disabled={isRewritingNewTask || !newTask.trim()}
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 hover:bg-primary/20"
+                        title="Enhance with AI"
+                      >
+                        {isRewritingNewTask ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        ) : (
+                          <Wand2 className="w-4 h-4 text-primary" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="category">Category *</Label>
@@ -652,14 +764,32 @@ const TodoPage = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={newDescription}
-                      onChange={(e) => setNewDescription(e.target.value)}
-                      placeholder="Add details about this task"
-                      rows={3}
-                      disabled={isLoading}
-                    />
+                    <div className="relative">
+                      <Textarea
+                        id="description"
+                        value={newDescription}
+                        onChange={(e) => setNewDescription(e.target.value)}
+                        placeholder="Add details about this task"
+                        rows={3}
+                        disabled={isLoading}
+                        className="pr-12"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => rewriteText(newDescription, setNewDescription, setIsRewritingNewDesc, 'todo')}
+                        disabled={isRewritingNewDesc || !newDescription.trim()}
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-2 right-2 h-8 w-8 hover:bg-primary/20"
+                        title="Enhance with AI"
+                      >
+                        {isRewritingNewDesc ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        ) : (
+                          <Wand2 className="w-4 h-4 text-primary" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="date">Due Date</Label>
@@ -1090,11 +1220,13 @@ const TodoPage = () => {
             <Card className="glass border-border">
               <CardContent className="p-12 text-center">
                 <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">No tasks found</h3>
+                <h3 className="text-lg font-semibold mb-2">{activeFilter === "done" ? "🎉 All caught up!" : "Ready to get started?"}</h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   {searchQuery.trim() 
-                    ? "No tasks match your search query" 
-                    : `No ${activeFilter === "done" ? "completed" : activeFilter.replace("_", " ")} tasks`}
+                    ? "No tasks match your search. Try different keywords!" 
+                    : activeFilter === "done" 
+                    ? "You haven't completed any tasks yet. Keep going!" 
+                    : "Create your first task and let AI help you accomplish it!"}
                 </p>
                 {!searchQuery.trim() && (
                   <Button
@@ -1137,7 +1269,7 @@ const TodoPage = () => {
             </div>
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
               {chatMessages.length === 0 ? (
                 <div className="text-center text-muted-foreground text-sm py-8">
                   <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />

@@ -9,8 +9,10 @@ from .tutorial_support_prompts import (
     QUIZ_GENERATION_PROMPT,
     QUIZ_EVALUATION_PROMPT,
     MINDMAP_ANALYSIS_PROMPT,
-    MINDMAP_GENERATION_PROMPT
+    MINDMAP_GENERATION_PROMPT,
+    CONSOLIDATED_NOTES_PROMPT
 )
+from .utility_prompts import REWRITE_SYSTEM_PROMPT, get_rewrite_prompt
 
 __all__ = [
     "STUDY_CHAT_SYSTEM_PROMPT",
@@ -25,5 +27,8 @@ __all__ = [
     "QUIZ_EVALUATION_PROMPT",
     "MINDMAP_ANALYSIS_PROMPT",
     "MINDMAP_GENERATION_PROMPT",
+    "CONSOLIDATED_NOTES_PROMPT",
+    "REWRITE_SYSTEM_PROMPT",
+    "get_rewrite_prompt",
 ]
 

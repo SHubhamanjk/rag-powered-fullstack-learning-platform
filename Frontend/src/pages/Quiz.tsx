@@ -302,7 +302,7 @@ const Quiz = () => {
           {/* Detailed Results */}
           <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
             <h3 className="text-lg sm:text-xl font-semibold">Question by Question Review</h3>
-            <div className="max-h-96 overflow-y-auto space-y-3 sm:space-y-4">
+            <div className="max-h-96 overflow-y-auto space-y-3 sm:space-y-4 scrollbar-hide">
               {quizResult.results?.map((result: any, index: number) => (
                 <Card
                   key={index}
@@ -441,7 +441,7 @@ const Quiz = () => {
         </div>
 
         {/* Question Navigation Dots */}
-        <div className="flex gap-2 flex-wrap mb-4 sm:mb-6 max-h-20 overflow-y-auto">
+        <div className="flex gap-2 flex-wrap mb-4 sm:mb-6 max-h-20 overflow-y-auto scrollbar-hide">
           {quizQuestions.map((_, index) => (
             <button
               key={index}

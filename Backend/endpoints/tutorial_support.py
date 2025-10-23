@@ -11,6 +11,9 @@ from schemas.tutorial_support import (
     GetAllTutorialsResponse,
     TutorialChatRequest, TutorialChatResponse,
     TutorialChatHistoryResponse,
+    EditTutorialRequest, EditTutorialResponse,
+    DeleteTutorialResponse,
+    GenerateConsolidatedNotesRequest, GenerateConsolidatedNotesResponse,
     # Quiz schemas
     GenerateQuizRequest, GenerateQuizResponse,
     EvaluateQuizRequest, EvaluateQuizResponse,
@@ -32,6 +35,9 @@ from services.tutorial_support_service import (
     get_all_tutorials,
     tutorial_ai_chat,
     get_tutorial_chat_history,
+    edit_tutorial,
+    delete_tutorial,
+    generate_consolidated_notes,
     # Quiz functions
     generate_quiz_from_transcript,
     evaluate_quiz,
@@ -56,7 +62,7 @@ async def create_tutorial_endpoint(
     Returns tutorial_id and title for the tutorial.
     """
     try:
-        result = await create_tutorial_session(current_user, req.tutorial_link)
+        result = await create_tutorial_session(current_user, req.tutorial_link, req.group)
         return CreateTutorialResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -359,6 +365,59 @@ async def get_chat_history_endpoint(
     try:
         result = await get_tutorial_chat_history(tutorial_id)
         return TutorialChatHistoryResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.patch("/{tutorial_id}", response_model=EditTutorialResponse)
+async def edit_tutorial_endpoint(
+    tutorial_id: str,
+    req: EditTutorialRequest = Body(...),
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Edit tutorial title or group.
+    Requires JWT authentication - uses authenticated user's email.
+    """
+    try:
+        result = await edit_tutorial(tutorial_id, current_user, req.title, req.group)
+        return EditTutorialResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.delete("/{tutorial_id}", response_model=DeleteTutorialResponse)
+async def delete_tutorial_endpoint(
+    tutorial_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Delete a tutorial.
+    Requires JWT authentication - uses authenticated user's email.
+    """
+    try:
+        result = await delete_tutorial(tutorial_id, current_user)
+        return DeleteTutorialResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.post("/consolidated-notes", response_model=GenerateConsolidatedNotesResponse)
+async def generate_consolidated_notes_endpoint(
+    req: GenerateConsolidatedNotesRequest = Body(...),
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Generate consolidated notes from all tutorials in a specific group.
+    Requires JWT authentication - uses authenticated user's email.
+    Combines all notes from all tutorials in the group (oldest to newest).
+    """
+    try:
+        result = await generate_consolidated_notes(current_user, req.group)
+        return GenerateConsolidatedNotesResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

@@ -5,12 +5,14 @@ from datetime import datetime
 # Create Tutorial Session
 class CreateTutorialRequest(BaseModel):
     tutorial_link: str
+    group: Optional[str] = "General"  # Category/Group for organization
     
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "tutorial_link": "https://youtube.com/watch?v=abc123"
+                    "tutorial_link": "https://youtube.com/watch?v=abc123",
+                    "group": "Web Development"
                 }
             ]
         }
@@ -211,6 +213,7 @@ class TutorialSummary(BaseModel):
     tutorial_id: str
     title: str
     tutorial_link: str
+    group: str
     notes_count: int
     created_at: datetime
     updated_at: datetime
@@ -229,6 +232,7 @@ class GetAllTutorialsResponse(BaseModel):
                             "tutorial_id": "507f1f77bcf86cd799439011",
                             "title": "Introduction to Python Programming",
                             "tutorial_link": "https://youtube.com/watch?v=abc123",
+                            "group": "Programming",
                             "notes_count": 15,
                             "created_at": "2025-01-15T10:00:00",
                             "updated_at": "2025-01-15T15:30:00"
@@ -238,6 +242,51 @@ class GetAllTutorialsResponse(BaseModel):
             ]
         }
     }
+
+# Edit Tutorial
+class EditTutorialRequest(BaseModel):
+    title: Optional[str] = None
+    group: Optional[str] = None
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "title": "Updated Tutorial Title",
+                    "group": "Advanced Programming"
+                }
+            ]
+        }
+    }
+
+class EditTutorialResponse(BaseModel):
+    message: str
+    tutorial_id: str
+    
+# Delete Tutorial
+class DeleteTutorialResponse(BaseModel):
+    message: str
+    tutorial_id: str
+
+# Generate Consolidated Notes
+class GenerateConsolidatedNotesRequest(BaseModel):
+    group: str
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "group": "Web Development"
+                }
+            ]
+        }
+    }
+
+class GenerateConsolidatedNotesResponse(BaseModel):
+    group: str
+    notes_content: str
+    tutorials_included: int
+    message: str
 
 # AI Companion Chat
 class TutorialChatRequest(BaseModel):

@@ -17,6 +17,9 @@ import type {
   GetAllTutorialsResponse,
   TutorialChatRequest,
   TutorialChatResponse,
+  EditTutorialRequest,
+  ConsolidatedNotesRequest,
+  ConsolidatedNotesResponse,
   GenerateQuizRequest,
   GenerateQuizResponse,
   EvaluateQuizRequest,
@@ -122,6 +125,21 @@ class TutorialService {
   // Get chat history for a tutorial
   async getChatHistory(tutorialId: string): Promise<TutorialChatHistoryResponse> {
     return apiService.get<TutorialChatHistoryResponse>(`/tutorial-support/chat/history/${tutorialId}`);
+  }
+
+  // Edit tutorial
+  async editTutorial(tutorialId: string, data: EditTutorialRequest): Promise<{message: string; tutorial_id: string}> {
+    return apiService.patch<{message: string; tutorial_id: string}>(`/tutorial-support/${tutorialId}`, data);
+  }
+
+  // Delete tutorial
+  async deleteTutorial(tutorialId: string): Promise<{message: string; tutorial_id: string}> {
+    return apiService.delete<{message: string; tutorial_id: string}>(`/tutorial-support/${tutorialId}`);
+  }
+
+  // Generate consolidated notes from group
+  async generateConsolidatedNotes(data: ConsolidatedNotesRequest): Promise<ConsolidatedNotesResponse> {
+    return apiService.post<ConsolidatedNotesResponse>("/tutorial-support/consolidated-notes", data);
   }
 }
 

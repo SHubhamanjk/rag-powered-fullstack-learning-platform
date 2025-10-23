@@ -44,6 +44,9 @@ def get_gemini_client() -> genai.Client:
 GROQ_MODEL = os.getenv("GROQ_MODEL")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL")
 
+# Timeout configuration
+GROQ_TIMEOUT = 60  # seconds
+
 # ============================================================================
 # GROQ HELPER FUNCTIONS
 # ============================================================================
@@ -65,6 +68,10 @@ def groq_chat_completion(
     
     Returns:
         Generated text response
+    
+    Raises:
+        ValueError: If response is empty or None
+        Exception: For other API errors
     """
     client = get_groq_client()
     
@@ -72,6 +79,7 @@ def groq_chat_completion(
         "model": GROQ_MODEL,
         "messages": messages,
         "temperature": temperature,
+        "timeout": GROQ_TIMEOUT,
     }
     
     if max_tokens:
@@ -80,8 +88,27 @@ def groq_chat_completion(
     if response_format:
         kwargs["response_format"] = response_format
     
-    response = client.chat.completions.create(**kwargs)
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(**kwargs)
+        
+        # Validate response
+        if not response or not response.choices or len(response.choices) == 0:
+            raise ValueError("Unable to generate response")
+        
+        content = response.choices[0].message.content
+        
+        if content is None or not content.strip():
+            raise ValueError("Unable to generate response")
+        
+        return content
+        
+    except Exception as e:
+        error_msg = str(e)
+        if "timeout" in error_msg.lower():
+            print(f"[LLM] Groq timeout: {error_msg}")
+            raise ValueError("Request timeout")
+        print(f"[LLM] Groq error: {error_msg}")
+        raise
 
 # ============================================================================
 # GEMINI HELPER FUNCTIONS
@@ -104,6 +131,10 @@ def gemini_generate_content(
     
     Returns:
         Generated text response
+    
+    Raises:
+        ValueError: If response is empty or None
+        Exception: For other API errors
     """
     client = get_gemini_client()
     
@@ -120,13 +151,35 @@ def gemini_generate_content(
     
     config = types.GenerateContentConfig(**config_params)
     
-    # Build request
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=config
-    )
-    return response.text
+    # Build request with error handling
+    try:
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=config
+        )
+        
+        # Check if response text is valid
+        if not response or not hasattr(response, 'text'):
+            raise ValueError("Unable to generate response")
+        
+        response_text = response.text
+        
+        # Check if response is None or empty
+        if response_text is None or not response_text.strip():
+            raise ValueError("Unable to generate response")
+        
+        return response_text
+        
+    except Exception as e:
+        # Re-raise with more context (for internal logging)
+        error_msg = str(e)
+        if "content" in error_msg.lower() and "filter" in error_msg.lower():
+            # Log internally but don't expose details
+            print(f"[LLM] Content filtering triggered: {error_msg}")
+            raise ValueError("Unable to process request")
+        print(f"[LLM] Gemini generate error: {error_msg}")
+        raise
 
 def gemini_chat_completion(
     messages: List[Dict[str, str]],
@@ -135,12 +188,11 @@ def gemini_chat_completion(
     max_tokens: Optional[int] = None
 ) -> str:
     """
-    Generate chat completion using Gemini with conversation history
+    Generate chat completion using Gemini - Simple version that works
     
     Args:
         messages: List of message dicts with 'role' and 'content'
-                 Roles should be 'user' or 'assistant' (will be converted to Gemini format)
-        system_instruction: Optional system instruction for behavior
+        system_instruction: Optional system instruction
         temperature: Sampling temperature (0-2)
         max_tokens: Maximum tokens to generate
     
@@ -149,75 +201,111 @@ def gemini_chat_completion(
     """
     client = get_gemini_client()
     
-    # Extract system messages and merge them with system_instruction
-    system_messages = []
-    user_assistant_messages = []
+    # Build configuration
+    config_params = {"temperature": temperature}
+    if max_tokens:
+        config_params["max_output_tokens"] = max_tokens
+    if system_instruction:
+        config_params["system_instruction"] = system_instruction
     
+    config = types.GenerateContentConfig(**config_params)
+    
+    # Convert messages to Gemini format
+    gemini_messages = []
     for msg in messages:
         role = msg.get("role", "")
         content = msg.get("content", "")
         
-        # Skip empty messages
         if not content or not content.strip():
-            continue
-            
-        if role == "system":
-            system_messages.append(content)
-        else:
-            user_assistant_messages.append(msg)
-    
-    # Merge all system instructions
-    if system_messages:
-        merged_system = "\n\n".join(system_messages)
-        if system_instruction:
-            system_instruction = system_instruction + "\n\n" + merged_system
-        else:
-            system_instruction = merged_system
-    
-    # Convert messages to Gemini format
-    # Gemini uses 'user' and 'model' roles
-    gemini_messages = []
-    for msg in user_assistant_messages:
-        role = msg["role"]
-        content = msg["content"].strip()
-        
-        # Skip empty content
-        if not content:
             continue
         
         # Convert 'assistant' to 'model' for Gemini
         if role == "assistant":
             role = "model"
+        elif role == "system":
+            continue  # Skip system messages (handled by system_instruction)
         
         gemini_messages.append({
             "role": role,
             "parts": [{"text": content}]
         })
     
-    # Ensure we have at least one message
     if not gemini_messages:
-        raise ValueError("No valid messages to send to Gemini")
+        raise ValueError("No valid messages")
     
-    # Build configuration using GenerateContentConfig
-    config_params = {
-        "temperature": temperature,
-    }
-    
-    if max_tokens:
-        config_params["max_output_tokens"] = max_tokens
-    
-    if system_instruction:
-        config_params["system_instruction"] = system_instruction
-    
-    config = types.GenerateContentConfig(**config_params)
-    
-    # Build request
+    # Call API
     response = client.models.generate_content(
         model=GEMINI_MODEL,
         contents=gemini_messages,
         config=config
     )
+    
     return response.text
+
+# ============================================================================
+# FALLBACK & RESILIENT CHAT FUNCTIONS
+# ============================================================================
+
+def chat_completion_with_fallback(
+    messages: List[Dict[str, str]],
+    system_instruction: Optional[str] = None,
+    temperature: float = 0.7,
+    max_tokens: Optional[int] = None,
+    prefer_gemini: bool = True
+) -> tuple[str, str]:
+    """
+    Chat completion with automatic fallback between Gemini and Groq
+    
+    Args:
+        messages: List of message dicts with 'role' and 'content'
+        system_instruction: Optional system instruction for behavior
+        temperature: Sampling temperature (0-2)
+        max_tokens: Maximum tokens to generate
+        prefer_gemini: If True, try Gemini first, then Groq. If False, reverse order.
+    
+    Returns:
+        Tuple of (response_text, provider_used)
+        provider_used will be either "gemini" or "groq"
+    
+    Raises:
+        Exception: If both providers fail
+    """
+    providers = ["gemini", "groq"] if prefer_gemini else ["groq", "gemini"]
+    last_error = None
+    
+    for provider in providers:
+        try:
+            if provider == "gemini":
+                response = gemini_chat_completion(
+                    messages=messages,
+                    system_instruction=system_instruction,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                return (response, "gemini")
+            else:  # groq
+                # Convert to Groq format (add system instruction as first message if provided)
+                groq_messages = []
+                if system_instruction:
+                    groq_messages.append({"role": "system", "content": system_instruction})
+                groq_messages.extend(messages)
+                
+                response = groq_chat_completion(
+                    messages=groq_messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                return (response, "groq")
+                
+        except Exception as e:
+            last_error = e
+            # Log internally only
+            print(f"[LLM Fallback] {provider.capitalize()} failed: {str(e)[:100]}")
+            continue
+    
+    # If we get here, all providers failed - use generic user-friendly message
+    print(f"[LLM Fallback] All providers failed. Last error: {str(last_error)}")
+    raise Exception("Unable to generate response at this time")
 
 # ============================================================================
 # PROVIDER INFORMATION
