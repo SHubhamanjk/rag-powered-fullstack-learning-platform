@@ -63,6 +63,7 @@ jobs:
           SMTP_FROM_NAME=Medha.ai
           GMAIL_APP_PASSWORD=secretref:gmail-app-password
           HUGGINGFACE_HUB_TOKEN=secretref:huggingface-token
+          AZURE_STORAGE_CONNECTION_STRING=secretref:azure-storage-connection-string
 
     - name: Logout from Azure
       run: az logout

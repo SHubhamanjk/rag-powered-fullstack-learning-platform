@@ -24,6 +24,9 @@ from endpoints import (
     # Tutorial Support Management
     tutorial_support,
     
+    # Memory Vault
+    memory_vault,
+    
     # Analytics & Dashboard
     dashboard,
     
@@ -117,6 +120,14 @@ app.include_router(
     tutorial_support.router,
     prefix="/tutorial-support",
     tags=["Tutorial Support Management"]
+)
+
+# ============================================================================
+# MEMORY VAULT
+# ============================================================================
+app.include_router(
+    memory_vault.router,
+    tags=["Memory Vault"]
 )
 
 # ============================================================================

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Brain, BookOpen, GraduationCap, CheckSquare, User, Moon, Sun, LogOut, Menu, X } from "lucide-react";
+import { Brain, BookOpen, GraduationCap, CheckSquare, FolderLock, User, Moon, Sun, LogOut, Menu, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,6 +26,7 @@ const Navbar = () => {
     { path: "/tutorial", icon: BookOpen, label: "Tutorial" },
     { path: "/study", icon: GraduationCap, label: "Study Mode" },
     { path: "/todo", icon: CheckSquare, label: "To-Do" },
+    { path: "/memory-vault", icon: FolderLock, label: "Memory Vault" },
     { path: "/profile", icon: User, label: "Profile" },
   ];
 
