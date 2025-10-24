@@ -1137,9 +1137,12 @@ const TodoPage = () => {
                                   </Badge>
                                   {todo.date && (
                                     <>
-                                      <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getDateLabelColor(getDateLabel(todo.date))}`}>
-                                        {getDateLabel(todo.date)}
-                                      </Badge>
+                                      {/* Only show date label if not "Overdue" when status is done */}
+                                      {!(todo.status === "done" && getDateLabel(todo.date) === "Overdue") && (
+                                        <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getDateLabelColor(getDateLabel(todo.date))}`}>
+                                          {getDateLabel(todo.date)}
+                                        </Badge>
+                                      )}
                                       <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                                         <CalendarIcon className="w-2.5 h-2.5" />
                                         {formatDate(todo.date)}
