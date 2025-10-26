@@ -19,6 +19,8 @@ import {
   Menu,
   Wand2,
   Search,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoRewrite } from "@/hooks/use-undo-rewrite";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 import { studySessionService } from "@/services/studySessionService";
 import utilityService from "@/services/utilityService";
 import MarkdownMessage from "@/components/MarkdownMessage";
@@ -46,6 +49,20 @@ const StudyMode = () => {
   const { toast } = useToast();
   const { saveForUndo } = useUndoRewrite();
   const navigate = useNavigate();
+
+  // Voice input for chat
+  const { isRecording: isRecordingChat, isTranscribing: isTranscribingChat, startRecording: startRecordingChat, stopRecording: stopRecordingChat } = useVoiceInput({
+    onTranscriptionComplete: (text) => {
+      setChatInput(text); // Set transcribed text in chat input field
+    },
+  });
+
+  // Voice input for session details
+  const { isRecording: isRecordingDetails, isTranscribing: isTranscribingDetails, startRecording: startRecordingDetails, stopRecording: stopRecordingDetails } = useVoiceInput({
+    onTranscriptionComplete: (text) => {
+      setNewSessionData(prev => ({ ...prev, study_details: text })); // Set transcribed text in details field
+    },
+  });
 
   // State
   const [sessions, setSessions] = useState<any[]>([]);
@@ -990,6 +1007,28 @@ const StudyMode = () => {
             {/* Chat Input */}
             <div className="p-3 sm:p-4 border-t border-border glass">
               <div className="max-w-4xl mx-auto flex gap-2">
+                {/* Voice Recording Button */}
+                <Button
+                  onClick={isRecordingChat ? stopRecordingChat : startRecordingChat}
+                  size="icon"
+                  disabled={isChatLoading || isTranscribingChat}
+                  className={`h-10 w-10 ${
+                    isRecordingChat
+                      ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                      : ""
+                  }`}
+                  variant={isRecordingChat ? "default" : "outline"}
+                  title={isRecordingChat ? "Stop recording" : "Record voice"}
+                >
+                  {isTranscribingChat ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isRecordingChat ? (
+                    <MicOff className="w-4 h-4 text-white" />
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
+                </Button>
+
                 <div className="relative flex-1">
                   <Input
                     ref={chatInputRef}
@@ -1001,13 +1040,19 @@ const StudyMode = () => {
                         sendChatMessage();
                       }
                     }}
-                    placeholder="Ask anything... I've read all your study materials!"
+                    placeholder={
+                      isRecordingChat
+                        ? "Recording... Click stop when done"
+                        : isTranscribingChat
+                        ? "Transcribing audio..."
+                        : "Ask anything... I've read all your study materials!"
+                    }
                     className="flex-1 text-sm sm:text-base pr-12"
-                    disabled={isChatLoading}
+                    disabled={isChatLoading || isRecordingChat || isTranscribingChat}
                   />
                   <Button
                     onClick={rewriteChatInput}
-                    disabled={isRewritingChat || !chatInput.trim()}
+                    disabled={isRewritingChat || !chatInput.trim() || isRecordingChat || isTranscribingChat}
                     size="icon"
                     variant="ghost"
                     className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 hover:bg-primary/20"
@@ -1022,7 +1067,7 @@ const StudyMode = () => {
                 </div>
                 <Button
                   onClick={sendChatMessage}
-                  disabled={!chatInput.trim() || isChatLoading}
+                  disabled={!chatInput.trim() || isChatLoading || isRecordingChat || isTranscribingChat}
                   size="icon"
                   className="h-10 w-10 sm:h-10 sm:w-10"
                 >
@@ -1073,6 +1118,10 @@ const StudyMode = () => {
         setIsRewritingGrade={setIsRewritingGrade}
         isRewritingDetails={isRewritingDetails}
         setIsRewritingDetails={setIsRewritingDetails}
+        isRecordingDetails={isRecordingDetails}
+        isTranscribingDetails={isTranscribingDetails}
+        startRecordingDetails={startRecordingDetails}
+        stopRecordingDetails={stopRecordingDetails}
       />
 
       {/* Quizzes List Modal */}
@@ -1443,6 +1492,10 @@ interface CreateSessionModalProps {
   setIsRewritingGrade: (value: boolean) => void;
   isRewritingDetails: boolean;
   setIsRewritingDetails: (value: boolean) => void;
+  isRecordingDetails: boolean;
+  isTranscribingDetails: boolean;
+  startRecordingDetails: () => void;
+  stopRecordingDetails: () => void;
 }
 
 const CreateSessionModal = ({
@@ -1466,6 +1519,10 @@ const CreateSessionModal = ({
   setIsRewritingGrade,
   isRewritingDetails,
   setIsRewritingDetails,
+  isRecordingDetails,
+  isTranscribingDetails,
+  startRecordingDetails,
+  stopRecordingDetails,
 }: CreateSessionModalProps) => {
   return (
     <AnimatePresence>
@@ -1574,25 +1631,54 @@ const CreateSessionModal = ({
                     onChange={(e) =>
                       setNewSessionData({ ...newSessionData, study_details: e.target.value })
                     }
-                    placeholder="What do you want to focus on? Any specific topics or areas?"
-                    className="resize-none h-24 pr-12"
-                    disabled={isLoading}
+                    placeholder={
+                      isRecordingDetails
+                        ? "Recording... Click stop when done"
+                        : isTranscribingDetails
+                        ? "Transcribing audio..."
+                        : "What do you want to focus on? Any specific topics or areas?"
+                    }
+                    className="resize-none h-24 pr-20"
+                    disabled={isLoading || isRecordingDetails || isTranscribingDetails}
                   />
-                  <Button
-                    type="button"
-                    onClick={() => rewriteSessionField('study_details', setIsRewritingDetails)}
-                    disabled={isRewritingDetails || !newSessionData.study_details.trim()}
-                    size="icon"
-                    variant="ghost"
-                    className="absolute top-2 right-2 h-8 w-8 hover:bg-primary/20"
-                    title="Enhance with AI"
-                  >
-                    {isRewritingDetails ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                    ) : (
-                      <Wand2 className="w-4 h-4 text-primary" />
-                    )}
-                  </Button>
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <Button
+                      type="button"
+                      onClick={isRecordingDetails ? stopRecordingDetails : startRecordingDetails}
+                      disabled={isRewritingDetails || isTranscribingDetails || isLoading}
+                      size="icon"
+                      variant="ghost"
+                      className={`h-8 w-8 ${
+                        isRecordingDetails
+                          ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                          : "hover:bg-primary/20"
+                      }`}
+                      title={isRecordingDetails ? "Stop recording" : "Record voice"}
+                    >
+                      {isTranscribingDetails ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      ) : isRecordingDetails ? (
+                        <MicOff className="w-4 h-4" />
+                      ) : (
+                        <Mic className="w-4 h-4 text-primary" />
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => rewriteSessionField('study_details', setIsRewritingDetails)}
+                      disabled={isRewritingDetails || !newSessionData.study_details.trim() || isRecordingDetails || isTranscribingDetails}
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 hover:bg-primary/20"
+                      title="Enhance with AI"
+                    >
+                      {isRewritingDetails ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      ) : (
+                        <Wand2 className="w-4 h-4 text-primary" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                       </div>
 

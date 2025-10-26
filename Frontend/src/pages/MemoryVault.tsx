@@ -479,37 +479,51 @@ const MemoryVault = () => {
         className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
       >
         <div className="container max-w-5xl mx-auto px-3 py-2 sm:px-4 sm:py-2.5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
                 <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-sm sm:text-base font-bold">Memory Vault</h1>
                 <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">
-                  {mode === "search" ? "Ask about your files" : "Upload & save"}
+                  {mode === "search" ? "Ask to find anything instantly" : "Store notes & files"}
                 </p>
               </div>
             </div>
             
-            {/* Mode Toggle */}
-            <Badge 
-              variant={mode === "search" ? "default" : "secondary"}
-              className="text-[10px] sm:text-xs px-2 py-1 sm:px-3 sm:py-1.5 cursor-pointer"
-              onClick={() => setMode(mode === "search" ? "add" : "search")}
-            >
-              {mode === "search" ? (
-                <>
-                  <Search className="w-3 h-3 sm:mr-1" />
-                  <span className="hidden sm:inline">Search</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="w-3 h-3 sm:mr-1" />
-                  <span className="hidden sm:inline">Add</span>
-                </>
-              )}
-            </Badge>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Info badges - visible on mobile and desktop */}
+              <div className="hidden md:flex items-center gap-2 mr-2">
+                <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                  <Plus className="w-2.5 h-2.5 mr-1" />
+                  Add to store
+                </Badge>
+                <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                  <Search className="w-2.5 h-2.5 mr-1" />
+                  Search to find
+                </Badge>
+              </div>
+              
+              {/* Mode Toggle */}
+              <Badge 
+                variant={mode === "search" ? "default" : "secondary"}
+                className="text-[10px] sm:text-xs px-2 py-1 sm:px-3 sm:py-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setMode(mode === "search" ? "add" : "search")}
+              >
+                {mode === "search" ? (
+                  <>
+                    <Search className="w-3 h-3 sm:mr-1" />
+                    <span className="hidden sm:inline">Search</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-3 h-3 sm:mr-1" />
+                    <span className="hidden sm:inline">Add</span>
+                  </>
+                )}
+              </Badge>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -522,23 +536,61 @@ const MemoryVault = () => {
               <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-primary" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-center">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                <FileText className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center py-8 sm:py-12 text-center px-4"
+            >
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center mb-4 relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-blue-500 opacity-10 rounded-2xl animate-pulse"></div>
+                <FileText className="w-7 h-7 sm:w-8 sm:h-8 text-primary relative z-10" />
               </div>
-              <h3 className="text-base sm:text-lg font-semibold mb-1.5">No messages yet</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground max-w-md mb-3 px-4">
-                Upload files or ask questions
+
+              <h2 className="text-xl sm:text-2xl font-bold mb-2 bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+                Your Personal Cloud
+              </h2>
+              
+              <p className="text-sm sm:text-base text-muted-foreground max-w-lg mb-6 leading-relaxed">
+                Store everything — notes, files, ideas. Just ask when you need something, AI finds it instantly. No manual search needed.
               </p>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="text-[10px] sm:text-xs">
-                  /add
-                </Badge>
-                <Badge variant="outline" className="text-[10px] sm:text-xs">
-                  /search
-                </Badge>
+
+              <div className="flex flex-wrap gap-4 justify-center mb-6">
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Plus className="w-4 h-4 text-primary" />
+                  </div>
+                  <span className="text-muted-foreground">Use <Badge variant="outline" className="text-xs mx-1">Add</Badge> to store</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Search className="w-4 h-4 text-primary" />
+                  </div>
+                  <span className="text-muted-foreground">Use <Badge variant="outline" className="text-xs mx-1">Search</Badge> to find</span>
+                </div>
               </div>
-            </div>
+              
+              <div className="flex gap-3">
+                <Button 
+                  size="sm"
+                  className="bg-gradient-to-r from-primary to-secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip className="w-4 h-4 mr-2" />
+                  Upload File
+                </Button>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setMode("add");
+                    toast({ title: "Add Mode", description: "Type your note below" });
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Note
+                </Button>
+              </div>
+            </motion.div>
           ) : (
             <div className="space-y-2.5 sm:space-y-3 pb-2">
               <AnimatePresence>

@@ -17,6 +17,8 @@ import {
   Filter,
   Wand2,
   Sparkles,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { DailyThemedClock } from "@/components/DailyThemedClock";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 import { todoService } from "@/services/todoService";
 import utilityService from "@/services/utilityService";
 import MarkdownMessage from "@/components/MarkdownMessage";
@@ -51,6 +54,20 @@ const getDailyQuote = () => {
 const TodoPage = () => {
   const { toast } = useToast();
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Voice input for new task description
+  const { isRecording: isRecordingNewDesc, isTranscribing: isTranscribingNewDesc, startRecording: startRecordingNewDesc, stopRecording: stopRecordingNewDesc } = useVoiceInput({
+    onTranscriptionComplete: (text) => {
+      setNewDescription(text); // Set transcribed text in new description field
+    },
+  });
+
+  // Voice input for edit task description
+  const { isRecording: isRecordingEditDesc, isTranscribing: isTranscribingEditDesc, startRecording: startRecordingEditDesc, stopRecording: stopRecordingEditDesc } = useVoiceInput({
+    onTranscriptionComplete: (text) => {
+      setEditDescription(text); // Set transcribed text in edit description field
+    },
+  });
   
   // Get daily quote (memoized)
   const dailyQuote = getDailyQuote();
@@ -791,26 +808,55 @@ const TodoPage = () => {
                         id="description"
                         value={newDescription}
                         onChange={(e) => setNewDescription(e.target.value)}
-                        placeholder="Add details about this task"
+                        placeholder={
+                          isRecordingNewDesc
+                            ? "Recording... Click stop when done"
+                            : isTranscribingNewDesc
+                            ? "Transcribing audio..."
+                            : "Add details about this task"
+                        }
                         rows={3}
-                        disabled={isLoading}
-                        className="pr-12"
+                        disabled={isLoading || isRecordingNewDesc || isTranscribingNewDesc}
+                        className="pr-20"
                       />
-                      <Button
-                        type="button"
-                        onClick={() => rewriteText(newDescription, setNewDescription, setIsRewritingNewDesc, 'todo')}
-                        disabled={isRewritingNewDesc || !newDescription.trim()}
-                        size="icon"
-                        variant="ghost"
-                        className="absolute top-2 right-2 h-8 w-8 hover:bg-primary/20"
-                        title="Enhance with AI"
-                      >
-                        {isRewritingNewDesc ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                        ) : (
-                          <Wand2 className="w-4 h-4 text-primary" />
-                        )}
-                      </Button>
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <Button
+                          type="button"
+                          onClick={isRecordingNewDesc ? stopRecordingNewDesc : startRecordingNewDesc}
+                          disabled={isRewritingNewDesc || isTranscribingNewDesc || isLoading}
+                          size="icon"
+                          variant="ghost"
+                          className={`h-8 w-8 ${
+                            isRecordingNewDesc
+                              ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                              : "hover:bg-primary/20"
+                          }`}
+                          title={isRecordingNewDesc ? "Stop recording" : "Record voice"}
+                        >
+                          {isTranscribingNewDesc ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                          ) : isRecordingNewDesc ? (
+                            <MicOff className="w-4 h-4" />
+                          ) : (
+                            <Mic className="w-4 h-4 text-primary" />
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => rewriteText(newDescription, setNewDescription, setIsRewritingNewDesc, 'todo')}
+                          disabled={isRewritingNewDesc || !newDescription.trim() || isRecordingNewDesc || isTranscribingNewDesc}
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 hover:bg-primary/20"
+                          title="Enhance with AI"
+                        >
+                          {isRewritingNewDesc ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                          ) : (
+                            <Wand2 className="w-4 h-4 text-primary" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -1091,13 +1137,43 @@ const TodoPage = () => {
                                 className="text-sm h-9"
                               />
                             )}
-                            <Textarea
-                              value={editDescription}
-                              onChange={(e) => setEditDescription(e.target.value)}
-                              placeholder="Description"
-                              rows={2}
-                              className="text-sm resize-none"
-                            />
+                            <div className="relative">
+                              <Textarea
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                placeholder={
+                                  isRecordingEditDesc
+                                    ? "Recording... Click stop when done"
+                                    : isTranscribingEditDesc
+                                    ? "Transcribing audio..."
+                                    : "Description"
+                                }
+                                rows={2}
+                                className="text-sm resize-none pr-10"
+                                disabled={isRecordingEditDesc || isTranscribingEditDesc}
+                              />
+                              <Button
+                                type="button"
+                                onClick={isRecordingEditDesc ? stopRecordingEditDesc : startRecordingEditDesc}
+                                disabled={isTranscribingEditDesc || isLoading}
+                                size="icon"
+                                variant="ghost"
+                                className={`absolute top-1 right-1 h-7 w-7 ${
+                                  isRecordingEditDesc
+                                    ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                                    : "hover:bg-primary/20"
+                                }`}
+                                title={isRecordingEditDesc ? "Stop recording" : "Record voice"}
+                              >
+                                {isTranscribingEditDesc ? (
+                                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                                ) : isRecordingEditDesc ? (
+                                  <MicOff className="w-3 h-3" />
+                                ) : (
+                                  <Mic className="w-3 h-3 text-primary" />
+                                )}
+                              </Button>
+                            </div>
                             <div className="relative">
                               <CalendarIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                               <Input

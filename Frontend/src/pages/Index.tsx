@@ -276,8 +276,8 @@ const Index = () => {
               className="flex items-center gap-2 cursor-pointer"
               whileHover={{ scale: 1.02 }}
             >
-              <div className="relative">
-                <Brain className="w-8 h-8 text-primary" />
+              <div className="relative w-8 h-8">
+                <img src="/logo.png" alt="Medha.ai Logo" className="w-full h-full object-contain" />
                 <div className="absolute inset-0 blur-md bg-primary/30 animate-pulse-slow" />
             </div>
               <span className="text-xl font-bold bg-gradient-to-r from-primary via-primary to-secondary bg-clip-text text-transparent">
@@ -1045,7 +1045,7 @@ const Index = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-            <Brain className="w-6 h-6 text-primary" />
+            <img src="/logo.png" alt="Medha.ai Logo" className="w-6 h-6 object-contain" />
               <span className="text-lg font-bold text-primary">
                 Medha.ai
               </span>

@@ -97,7 +97,9 @@ Frontend/
 │   ├── lib/             # Utility functions
 │   └── main.tsx         # Application entry point
 ├── public/              # Static assets
-│   └── favicon.svg      # Medha.ai favicon
+│   ├── logo.png         # Medha.ai logo and favicon
+│   ├── robots.txt       # SEO crawler instructions
+│   └── site.webmanifest # PWA manifest
 └── index.html           # HTML template
 ```
 

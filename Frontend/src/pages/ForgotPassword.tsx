@@ -193,7 +193,7 @@ const ForgotPassword = () => {
       >
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Brain className="w-10 h-10 text-primary animate-glow-pulse" />
+            <img src="/logo.png" alt="Medha.ai Logo" className="w-10 h-10 object-contain animate-glow-pulse" />
             <span className="text-xl sm:text-2xl font-bold gradient-text">Medha.ai</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-2">{stepInfo.title}</h1>

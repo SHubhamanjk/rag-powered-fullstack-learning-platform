@@ -1,0 +1,23 @@
+# robots.txt for Medha.ai
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://medha.ai/sitemap.xml
+
+# Disallow specific paths
+Disallow: /api/
+Disallow: /admin/
+Disallow: /*.json$
+Disallow: /*.xml$
+
+# Crawl delay (optional)
+Crawl-delay: 1
+
+# Allow specific bots
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+

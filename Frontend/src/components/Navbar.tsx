@@ -27,7 +27,6 @@ const Navbar = () => {
     { path: "/study", icon: GraduationCap, label: "Study Mode" },
     { path: "/todo", icon: CheckSquare, label: "To-Do" },
     { path: "/memory-vault", icon: FolderLock, label: "Memory Vault" },
-    { path: "/profile", icon: User, label: "Profile" },
   ];
 
   const handleLogout = () => {
@@ -50,8 +49,8 @@ const Navbar = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center glow-on-hover">
-                <Brain className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center glow-on-hover">
+                <img src="/logo.png" alt="Medha.ai Logo" className="w-full h-full object-contain" />
               </div>
               <span className="text-lg sm:text-xl font-bold gradient-text">Medha.ai</span>
             </Link>

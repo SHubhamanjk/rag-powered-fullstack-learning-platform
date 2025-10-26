@@ -180,11 +180,11 @@ const Signup = () => {
             transition={{ delay: 0.2 }}
           >
             <motion.div
-              className="relative"
+              className="relative w-12 h-12"
               animate={{ rotate: 360 }}
               transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
             >
-              <Brain className="w-12 h-12 text-primary relative z-10" />
+              <img src="/logo.png" alt="Medha.ai Logo" className="w-full h-full object-contain relative z-10" />
               <motion.div
                 className="absolute inset-0 blur-xl bg-primary/50 rounded-full"
                 animate={{

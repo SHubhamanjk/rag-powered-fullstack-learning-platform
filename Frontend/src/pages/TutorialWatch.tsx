@@ -27,6 +27,8 @@ import {
   BookMarked,
   Eye,
   Wand2,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoRewrite } from "@/hooks/use-undo-rewrite";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 import { tutorialService } from "@/services/tutorialService";
 import utilityService from "@/services/utilityService";
 import MarkdownMessage from "@/components/MarkdownMessage";
@@ -59,6 +62,20 @@ const TutorialWatch = () => {
   const { toast } = useToast();
   const { saveForUndo } = useUndoRewrite();
   const navigate = useNavigate();
+
+  // Voice input for notes
+  const { isRecording: isRecordingNote, isTranscribing: isTranscribingNote, startRecording: startRecordingNote, stopRecording: stopRecordingNote } = useVoiceInput({
+    onTranscriptionComplete: (text) => {
+      setNewNote(text); // Set transcribed text in note field
+    },
+  });
+
+  // Voice input for chat
+  const { isRecording: isRecordingChat, isTranscribing: isTranscribingChat, startRecording: startRecordingChat, stopRecording: stopRecordingChat } = useVoiceInput({
+    onTranscriptionComplete: (text) => {
+      setChatInput(text); // Set transcribed text in chat input field
+    },
+  });
   
   // State
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
@@ -1874,30 +1891,59 @@ const TutorialWatch = () => {
                   <div className="relative">
                     <Textarea
                       ref={noteTextareaRef}
-                      placeholder="What's important here? Jot it down... (timestamp saved automatically)"
+                      placeholder={
+                        isRecordingNote 
+                          ? "Recording... Click stop when done" 
+                          : isTranscribingNote 
+                          ? "Transcribing audio..." 
+                          : "What's important here? Jot it down... (timestamp saved automatically)"
+                      }
                       value={newNote}
                       onChange={(e) => setNewNote(e.target.value)}
-                      className="resize-none pr-12 min-h-[60px] max-h-[200px] overflow-y-auto scrollbar-hide transition-all duration-150"
+                      className="resize-none pr-20 min-h-[60px] max-h-[200px] overflow-y-auto scrollbar-hide transition-all duration-150"
                       style={{ height: '60px' }}
+                      disabled={isRecordingNote || isTranscribingNote}
                     />
-                    <Button
-                      onClick={rewriteNote}
-                      disabled={isRewritingNote || !newNote.trim()}
-                      size="icon"
-                      variant="ghost"
-                      className="absolute top-2 right-2 h-8 w-8 hover:bg-primary/20"
-                      title="Enhance with AI"
-                    >
-                      {isRewritingNote ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                      ) : (
-                        <Wand2 className="w-4 h-4 text-primary" />
-                      )}
-                    </Button>
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <Button
+                        onClick={isRecordingNote ? stopRecordingNote : startRecordingNote}
+                        disabled={isRewritingNote || isTranscribingNote}
+                        size="icon"
+                        variant="ghost"
+                        className={`h-8 w-8 ${
+                          isRecordingNote 
+                            ? "bg-red-500 hover:bg-red-600 text-white animate-pulse" 
+                            : "hover:bg-primary/20"
+                        }`}
+                        title={isRecordingNote ? "Stop recording" : "Record voice note"}
+                      >
+                        {isTranscribingNote ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        ) : isRecordingNote ? (
+                          <MicOff className="w-4 h-4" />
+                        ) : (
+                          <Mic className="w-4 h-4 text-primary" />
+                        )}
+                      </Button>
+                      <Button
+                        onClick={rewriteNote}
+                        disabled={isRewritingNote || !newNote.trim() || isRecordingNote || isTranscribingNote}
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 hover:bg-primary/20"
+                        title="Enhance with AI"
+                      >
+                        {isRewritingNote ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        ) : (
+                          <Wand2 className="w-4 h-4 text-primary" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <Button
                     onClick={addNote}
-                    disabled={isLoading}
+                    disabled={isLoading || isRecordingNote || isTranscribingNote}
                     size="sm"
                     className="w-full bg-gradient-to-r from-primary to-secondary"
                   >
@@ -2053,18 +2099,46 @@ const TutorialWatch = () => {
 
             {/* Fixed Chat Input */}
             <div className="flex gap-2 flex-shrink-0">
+              {/* Voice Recording Button */}
+              <Button
+                onClick={isRecordingChat ? stopRecordingChat : startRecordingChat}
+                size="icon"
+                disabled={isChatLoading || isTranscribingChat}
+                className={`shrink-0 ${
+                  isRecordingChat
+                    ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                    : "glass"
+                }`}
+                variant={isRecordingChat ? "default" : "outline"}
+                title={isRecordingChat ? "Stop recording" : "Record voice question"}
+              >
+                {isTranscribingChat ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : isRecordingChat ? (
+                  <MicOff className="w-4 h-4 text-white" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </Button>
+
               <Input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && sendChatMessage()}
-                placeholder="Ask a question..."
-                disabled={isChatLoading}
+                placeholder={
+                  isRecordingChat
+                    ? "Recording... Click stop when done"
+                    : isTranscribingChat
+                    ? "Transcribing audio..."
+                    : "Ask a question..."
+                }
+                disabled={isChatLoading || isRecordingChat || isTranscribingChat}
                 className="glass"
               />
               <Button
                 onClick={sendChatMessage}
                 size="icon"
-                disabled={isChatLoading || !chatInput.trim()}
+                disabled={isChatLoading || !chatInput.trim() || isRecordingChat || isTranscribingChat}
                 className="bg-gradient-to-br from-primary to-secondary shrink-0"
               >
                 {isChatLoading ? (

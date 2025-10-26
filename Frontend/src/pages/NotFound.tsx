@@ -51,7 +51,7 @@ const NotFound = () => {
           transition={{ duration: 2, repeat: Infinity }}
           className="mb-6 inline-block"
         >
-          <Brain className="w-16 h-16 sm:w-20 sm:h-20 text-primary" />
+          <img src="/logo.png" alt="Medha.ai Logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain" />
         </motion.div>
         
         <h1 className="mb-4 text-6xl sm:text-8xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">

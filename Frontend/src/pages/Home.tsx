@@ -14,7 +14,9 @@ import {
   Zap,
   Menu,
   X,
-  Search
+  Search,
+  Mic,
+  MicOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { chatService } from "@/services/chatService";
 import { friendChatService } from "@/services/friendChatService";
 import MarkdownMessage from "@/components/MarkdownMessage";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 import type { ChatMode, Message, Chat, TemporaryChatMessage } from "@/types/chat";
 
 const Home = () => {
@@ -46,6 +49,13 @@ const Home = () => {
   const [isNewChatMode, setIsNewChatMode] = useState(false); // Track if user wants a new chat
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sidebar state
   const [searchQuery, setSearchQuery] = useState(""); // Search query state
+
+  // Voice input hook
+  const { isRecording, isTranscribing, startRecording, stopRecording } = useVoiceInput({
+    onTranscriptionComplete: (text) => {
+      setInput(text); // Set transcribed text in input field
+    },
+  });
 
   // Get the appropriate service based on mode
   const getService = () => mode === "study" ? chatService : friendChatService;
@@ -905,6 +915,32 @@ const Home = () => {
         {/* Input Area */}
         <div className="border-t border-border/50 backdrop-blur-xl p-3 sm:p-4 relative z-10">
           <div className="max-w-4xl mx-auto flex gap-2 sm:gap-3">
+            {/* Voice Recording Button */}
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button
+                onClick={isRecording ? stopRecording : startRecording}
+                size="icon"
+                disabled={isLoading || isTranscribing}
+                className={`h-12 w-12 sm:h-14 sm:w-14 rounded-2xl hover:opacity-90 shadow-lg hover:shadow-xl transition-all ${
+                  isRecording
+                    ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                    : "glass border-2 border-border/50 hover:border-primary/50"
+                }`}
+                title={isRecording ? "Stop recording" : "Record voice"}
+              >
+                {isTranscribing ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : isRecording ? (
+                  <MicOff className="w-5 h-5 text-white" />
+                ) : (
+                  <Mic className="w-5 h-5" />
+                )}
+              </Button>
+            </motion.div>
+
             <motion.div 
               className="flex-1 relative"
               whileFocus={{ scale: 1.01 }}
@@ -914,14 +950,18 @@ const Home = () => {
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
               placeholder={
-                mode === "study" 
+                isRecording
+                  ? "Recording... Click stop when done"
+                  : isTranscribing
+                  ? "Transcribing audio..."
+                  : mode === "study" 
                   ? "Ask me anything you want to learn..." 
                   : "Share what's on your mind..."
               }
                 className="h-12 sm:h-14 rounded-2xl glass border-2 border-border/50 focus:border-primary/50 pr-12 text-sm sm:text-base"
-              disabled={isLoading}
+              disabled={isLoading || isRecording || isTranscribing}
             />
-              {input.trim() && (
+              {input.trim() && !isRecording && !isTranscribing && (
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -940,7 +980,7 @@ const Home = () => {
             <Button
               onClick={handleSend}
               size="icon"
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || !input.trim() || isRecording || isTranscribing}
                 className={`h-12 w-12 sm:h-14 sm:w-14 rounded-2xl hover:opacity-90 shadow-lg hover:shadow-xl transition-all relative overflow-hidden group ${
                 mode === "study"
                   ? "bg-gradient-to-br from-blue-500 to-purple-500"
