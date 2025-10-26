@@ -817,7 +817,7 @@ const TodoPage = () => {
                         }
                         rows={3}
                         disabled={isLoading || isRecordingNewDesc || isTranscribingNewDesc}
-                        className="pr-20"
+                        className="pr-20 scrollbar-hide"
                       />
                       <div className="absolute top-2 right-2 flex gap-1">
                         <Button
@@ -1149,7 +1149,7 @@ const TodoPage = () => {
                                     : "Description"
                                 }
                                 rows={2}
-                                className="text-sm resize-none pr-10"
+                                className="text-sm resize-none pr-10 scrollbar-hide"
                                 disabled={isRecordingEditDesc || isTranscribingEditDesc}
                               />
                               <Button
