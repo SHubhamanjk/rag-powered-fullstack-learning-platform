@@ -404,7 +404,7 @@ STUDY SESSION INFORMATION:
             messages=user_messages,
             system_instruction=system_instruction,
             temperature=0.7,
-            max_tokens=1500,
+            max_tokens=4000,  # Increased to allow complete responses without truncation
             prefer_gemini=True  # Try Gemini first
         )
         print(f"[Study Session] Response generated using: {provider_used}")

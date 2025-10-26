@@ -106,6 +106,7 @@ export interface GetAllTutorialsResponse {
 export interface TutorialChatRequest {
   tutorial_id: string;
   question: string;
+  current_timestamp?: string; // Optional: Current video position (MM:SS or HH:MM:SS) for context
 }
 
 export interface TutorialChatResponse {

@@ -322,8 +322,14 @@ async def get_all_tutorials(email: str) -> Dict[str, Any]:
         "tutorials": tutorial_summaries
     }
 
-async def tutorial_ai_chat(tutorial_id: str, question: str) -> Dict[str, Any]:
-    """AI companion chat for tutorial questions with context"""
+async def tutorial_ai_chat(tutorial_id: str, question: str, current_timestamp: Optional[str] = None) -> Dict[str, Any]:
+    """AI companion chat for tutorial questions with context
+    
+    Args:
+        tutorial_id: Tutorial ID
+        question: User's question
+        current_timestamp: Current video timestamp (MM:SS or HH:MM:SS) - if provided, adds recent transcript context
+    """
     collection = get_tutorial_support_collection()
     
     # Get tutorial
@@ -337,6 +343,20 @@ async def tutorial_ai_chat(tutorial_id: str, question: str) -> Dict[str, Any]:
     # Add tutorial info
     context_parts.append(f"Tutorial: {tutorial['title']}")
     context_parts.append(f"Link: {tutorial['tutorial_link']}")
+    
+    # Add recent transcript if current timestamp is provided
+    if current_timestamp:
+        recent_transcript = get_last_n_minutes_transcript(
+            tutorial['tutorial_link'],
+            current_timestamp,
+            minutes=5
+        )
+        if recent_transcript:
+            context_parts.append("\n📝 WHAT WAS JUST DISCUSSED (Last 5 minutes of video):")
+            # Take the LAST 1500 chars (most recent content) if transcript is longer
+            transcript_excerpt = recent_transcript[-1500:] if len(recent_transcript) > 1500 else recent_transcript
+            context_parts.append(f"[Leading up to ~{current_timestamp}] {transcript_excerpt}")
+            print(f"[Tutorial Chat] Added {len(transcript_excerpt)} chars of transcript context (from {len(recent_transcript)} total)")
     
     # Add notes as context
     notes = tutorial.get("notes", [])
@@ -383,14 +403,14 @@ async def tutorial_ai_chat(tutorial_id: str, question: str) -> Dict[str, Any]:
             else:
                 chat_messages.append(msg)
         
-        # Use fallback mechanism (try both Gemini and Groq)
-        # Prefer Gemini first to match study session behavior
+        # Use Groq for faster tutorial chat responses
+        # Prefer Groq first for quick, conversational responses
         answer, provider_used = chat_completion_with_fallback(
             messages=chat_messages,
             system_instruction=system_prompt,
             temperature=0.6,
-            max_tokens=1500,  # Increased from 400 to handle longer responses
-            prefer_gemini=True  # Try Gemini first like study sessions
+            max_tokens=4000,  # Increased to allow complete responses without truncation
+            prefer_gemini=False  # Prefer Groq for faster responses
         )
         
         # Log which provider was used
@@ -495,6 +515,92 @@ def timestamp_to_seconds(timestamp: str) -> int:
         hours, minutes, seconds = int(parts[0]), int(parts[1]), int(parts[2])
         return hours * 3600 + minutes * 60 + seconds
     return 0
+
+def get_last_n_minutes_transcript(tutorial_link: str, current_timestamp: str, minutes: int = 5) -> Optional[str]:
+    """
+    Get transcript for the last N minutes before current timestamp
+    
+    Args:
+        tutorial_link: YouTube video URL
+        current_timestamp: Current video position (MM:SS or HH:MM:SS)
+        minutes: Number of minutes to look back (default 5)
+    
+    Returns:
+        Transcript text from the time range, or None if not available
+    """
+    try:
+        video_id = extract_video_id(tutorial_link)
+        
+        # Try to get transcript
+        language_codes = ['en', 'hi', 'es', 'fr', 'de', 'ja', 'ko', 'pt', 'ru', 'it', 'ar', 'zh']
+        transcript_list = None
+        
+        try:
+            available_transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+            
+            # Try preferred languages
+            for lang_code in language_codes:
+                try:
+                    transcript = available_transcripts.find_transcript([lang_code])
+                    transcript_list = transcript.fetch()
+                    break
+                except:
+                    continue
+            
+            # Try any manually created transcript
+            if not transcript_list:
+                try:
+                    transcript = available_transcripts.find_manually_created_transcript()
+                    transcript_list = transcript.fetch()
+                except:
+                    pass
+            
+            # Try any generated transcript
+            if not transcript_list:
+                try:
+                    transcript = available_transcripts.find_generated_transcript()
+                    transcript_list = transcript.fetch()
+                except:
+                    pass
+                    
+        except Exception:
+            pass
+        
+        # Fallback: try without specifying language
+        if not transcript_list:
+            try:
+                transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            except Exception:
+                # No transcript available
+                return None
+        
+        if not transcript_list:
+            return None
+        
+        # Convert current timestamp to seconds
+        current_seconds = timestamp_to_seconds(current_timestamp)
+        
+        # Calculate start time (N minutes before current time)
+        lookback_seconds = minutes * 60
+        from_seconds = max(0, current_seconds - lookback_seconds)
+        
+        # Extract transcript from time range
+        filtered_transcript = []
+        for entry in transcript_list:
+            entry_start = entry['start']
+            # Include entries that start within our time range
+            if from_seconds <= entry_start <= current_seconds:
+                filtered_transcript.append(entry['text'])
+        
+        if not filtered_transcript:
+            return None
+        
+        return " ".join(filtered_transcript)
+        
+    except Exception as e:
+        # Silently fail - transcript is optional context
+        print(f"[Transcript Context] Could not fetch: {str(e)}")
+        return None
 
 def get_transcript_by_timerange(tutorial_link: str, from_timestamp: str, to_timestamp: Optional[str]) -> str:
     """Extract YouTube transcript for specified time range"""

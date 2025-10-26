@@ -253,11 +253,21 @@ def gemini_chat_completion(
         
         # Check if response text is empty
         response_text = response.text
+        
+        # Log finish reason for all responses (helps diagnose truncation issues)
+        if hasattr(response, 'candidates') and response.candidates:
+            candidate = response.candidates[0]
+            finish_reason = candidate.finish_reason if hasattr(candidate, 'finish_reason') else 'unknown'
+            print(f"[Gemini] Finish reason: {finish_reason}")
+            
+            # Warn if response was truncated
+            if finish_reason in ['MAX_TOKENS', 'LENGTH']:
+                print("[Gemini] WARNING: Response truncated due to token limit!")
+        
         if not response_text or not response_text.strip():
             # Log candidates to see what happened
             if hasattr(response, 'candidates') and response.candidates:
                 candidate = response.candidates[0]
-                print(f"[Gemini] Empty response. Finish reason: {candidate.finish_reason if hasattr(candidate, 'finish_reason') else 'unknown'}")
                 if hasattr(candidate, 'safety_ratings'):
                     print(f"[Gemini] Safety ratings: {candidate.safety_ratings}")
             raise ValueError("Empty response from Gemini")

@@ -92,7 +92,7 @@ async def generate_friend_reply(chat_id: Optional[str], message: str, email: str
             messages=user_messages,
             system_instruction=system_instruction,
             temperature=0.7,
-            max_tokens=1500,  # Sufficient for supportive, conversational responses
+            max_tokens=4000,  # Increased to allow complete responses without truncation
             prefer_gemini=False  # Prefer Groq for friend chat (faster)
         )
         print(f"[Friend Chat] Response generated using: {provider_used}")

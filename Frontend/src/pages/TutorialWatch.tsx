@@ -20,6 +20,7 @@ import {
   Brain,
   Trophy,
   ChevronLeft,
+  ChevronRight,
   Save,
   X,
   Menu,
@@ -42,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoRewrite } from "@/hooks/use-undo-rewrite";
 import { tutorialService } from "@/services/tutorialService";
 import utilityService from "@/services/utilityService";
 import MarkdownMessage from "@/components/MarkdownMessage";
@@ -55,6 +57,7 @@ import type {
 
 const TutorialWatch = () => {
   const { toast } = useToast();
+  const { saveForUndo } = useUndoRewrite();
   const navigate = useNavigate();
   
   // State
@@ -125,6 +128,11 @@ const TutorialWatch = () => {
   // Mobile sidebar
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Quick add next video
+  const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const [nextVideoUrl, setNextVideoUrl] = useState("");
+  const [isCreatingNext, setIsCreatingNext] = useState(false);
+
   // Video player ref
   const playerRef = useRef<any>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -152,12 +160,17 @@ const TutorialWatch = () => {
     fetchTutorials();
   }, []);
 
-  // Auto-scroll chat messages to bottom when new messages arrive
+  // Auto-scroll chat messages to bottom when new messages arrive or when switching to chat tab
   useEffect(() => {
-    if (chatMessagesRef.current) {
-      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    if (activeTab === "chat" && chatMessagesRef.current) {
+      // Use setTimeout to ensure DOM is fully rendered before scrolling
+      setTimeout(() => {
+        if (chatMessagesRef.current) {
+          chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+        }
+      }, 100);
     }
-  }, [chatMessages, isChatLoading]);
+  }, [chatMessages, isChatLoading, activeTab]);
 
   // Initialize YouTube player when tutorial selected
   useEffect(() => {
@@ -551,10 +564,13 @@ const TutorialWatch = () => {
       });
 
       if (response.improvement_applied) {
+        // Save original text for undo before replacing
+        saveForUndo(newNote, 'tutorial-note', setNewNote);
+        
         setNewNote(response.rewritten_text);
         toast({
           title: "✨ Text Enhanced",
-          description: "Your note has been improved!",
+          description: "Your note has been improved! (Press Ctrl+Z to undo)",
         });
       } else {
         toast({
@@ -919,6 +935,88 @@ const TutorialWatch = () => {
     });
   };
 
+  const createAndPlayNextVideo = async () => {
+    if (!nextVideoUrl.trim() || !selectedTutorial) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid YouTube URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingNext(true);
+    try {
+      // Create new tutorial in the same group
+      const response = await tutorialService.createTutorial({
+        tutorial_link: nextVideoUrl.trim(),
+        group: selectedTutorial.group, // Same group as current tutorial
+      });
+
+      toast({
+        title: "✨ Next Tutorial Ready",
+        description: `${response.title} - Now playing!`,
+      });
+
+      // Refresh tutorials list
+      await fetchTutorials();
+
+      // Find the newly created tutorial
+      const newTutorial = {
+        tutorial_id: response.tutorial_id,
+        title: response.title,
+        tutorial_link: nextVideoUrl.trim(),
+        group: selectedTutorial.group,
+        notes_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Close modal and reset
+      setShowQuickAddModal(false);
+      setNextVideoUrl("");
+
+      // Switch to the new tutorial (this will trigger video load)
+      setSelectedTutorial(newTutorial);
+      setChatMessages([]);
+      setNotes([]);
+      setMindmaps([]);
+      setQuizzes([]);
+      setCurrentVideoTime(0);
+
+    } catch (error: any) {
+      toast({
+        title: "Failed to Create Tutorial",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingNext(false);
+    }
+  };
+
+  // Helper function to format seconds to MM:SS or HH:MM:SS
+  const formatTimestamp = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Get YouTube thumbnail URL
+  const getYouTubeThumbnail = (videoUrl: string): string => {
+    const videoId = getYouTubeVideoId(videoUrl);
+    if (!videoId) {
+      return ""; // Fallback to gradient if can't extract ID
+    }
+    // Use hqdefault for reliable thumbnails (maxresdefault may not exist for all videos)
+    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  };
+
   const sendChatMessage = async () => {
     if (!selectedTutorial || !chatInput.trim()) return;
 
@@ -933,9 +1031,23 @@ const TutorialWatch = () => {
     setIsChatLoading(true);
 
     try {
+      // Get current video timestamp if player is available
+      let currentTimestamp: string | undefined;
+      try {
+        if (playerRef.current && playerRef.current.getCurrentTime) {
+          const currentSeconds = playerRef.current.getCurrentTime();
+          currentTimestamp = formatTimestamp(currentSeconds);
+          console.log(`[Tutorial Chat] Sending with video context at ${currentTimestamp}`);
+        }
+      } catch (e) {
+        // Player not ready or unavailable, proceed without timestamp
+        console.log('[Tutorial Chat] No video timestamp available');
+      }
+
       const response = await tutorialService.chatWithAI({
         tutorial_id: selectedTutorial.tutorial_id,
         question: userMessage.content,
+        current_timestamp: currentTimestamp,
       });
 
       const aiMessage: ChatMessage = {
@@ -1471,10 +1583,25 @@ const TutorialWatch = () => {
                   >
                     <Card className="glass border-border hover:border-primary/50 transition-all">
                       <CardContent className="p-3 sm:p-4">
-                        <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg mb-2 sm:mb-3 flex items-center justify-center relative">
-                          <Play className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
+                        <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg mb-2 sm:mb-3 flex items-center justify-center relative overflow-hidden">
+                          {/* YouTube Thumbnail */}
+                          {getYouTubeThumbnail(tutorial.tutorial_link) ? (
+                            <>
+                              <img 
+                                src={getYouTubeThumbnail(tutorial.tutorial_link)} 
+                                alt={tutorial.title}
+                                className="absolute inset-0 w-full h-full object-cover"
+                              />
+                              {/* Play overlay */}
+                              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                                <Play className="w-10 h-10 sm:w-12 sm:h-12 text-white drop-shadow-lg" />
+                              </div>
+                            </>
+                          ) : (
+                            <Play className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
+                          )}
                           {/* Edit/Delete buttons - shown on hover */}
-                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                             <Button
                               size="icon"
                               variant="secondary"
@@ -1616,8 +1743,8 @@ const TutorialWatch = () => {
 
       {/* Main Video Area */}
       <div className="flex-1 lg:flex-[0.7] flex flex-col bg-black/50">
-        {/* Back Button */}
-        <div className="glass border-b border-border p-2 sm:p-3 md:p-4">
+        {/* Header - Back & Next Buttons */}
+        <div className="glass border-b border-border p-2 sm:p-3 md:p-4 flex items-center justify-between">
           <Button
             onClick={() => {
               setSelectedTutorial(null);
@@ -1633,6 +1760,16 @@ const TutorialWatch = () => {
           >
             <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="text-xs sm:text-sm">Back to Tutorials</span>
+          </Button>
+
+          <Button
+            onClick={() => setShowQuickAddModal(true)}
+            variant="default"
+            size="sm"
+            className="gap-2"
+          >
+            <span className="text-xs sm:text-sm">Next Video</span>
+            <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
           </Button>
         </div>
 
@@ -2253,6 +2390,84 @@ const TutorialWatch = () => {
                 >
                   Cancel
                 </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Quick Add Next Video Modal */}
+      <AnimatePresence>
+        {showQuickAddModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => !isCreatingNext && setShowQuickAddModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md glass rounded-2xl border border-border"
+            >
+              <div className="p-6 space-y-4">
+                <div>
+                  <h2 className="text-xl font-bold">Add Next Video</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Paste the YouTube URL of the next video to watch
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Group: <span className="font-semibold">{selectedTutorial?.group}</span>
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="next-video-url">YouTube URL</Label>
+                  <Input
+                    id="next-video-url"
+                    placeholder="https://youtube.com/watch?v=..."
+                    value={nextVideoUrl}
+                    onChange={(e) => setNextVideoUrl(e.target.value)}
+                    disabled={isCreatingNext}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !isCreatingNext) {
+                        createAndPlayNextVideo();
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowQuickAddModal(false);
+                      setNextVideoUrl("");
+                    }}
+                    disabled={isCreatingNext}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={createAndPlayNextVideo}
+                    disabled={isCreatingNext || !nextVideoUrl.trim()}
+                  >
+                    {isCreatingNext ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 mr-2" />
+                        Create & Play
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

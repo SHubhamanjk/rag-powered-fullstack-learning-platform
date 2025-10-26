@@ -18,6 +18,7 @@ import {
   Wand2,
   Sparkles,
 } from "lucide-react";
+import { DailyThemedClock } from "@/components/DailyThemedClock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +54,9 @@ const TodoPage = () => {
   
   // Get daily quote (memoized)
   const dailyQuote = getDailyQuote();
+  
+  // Current time for the clock
+  const [currentTime, setCurrentTime] = useState(new Date());
   
   // State
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -91,6 +95,14 @@ const TodoPage = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchTodos = async () => {
     setIsFetching(true);
@@ -666,25 +678,35 @@ const TodoPage = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <Card className="glass border-primary/30 bg-gradient-to-br from-primary/10 via-purple-500/5 to-secondary/10">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          <Card className="glass border-primary/30 bg-gradient-to-br from-purple-500/5 via-primary/5 to-secondary/5 overflow-hidden relative">
+            {/* Background mystical effects */}
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full blur-3xl"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.05),transparent_50%)]"></div>
+            
+            <CardContent className="p-4 sm:p-6 relative z-10">
+              <div className="flex items-start gap-3 sm:gap-4">
+                {/* Quote content */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold bg-gradient-to-r from-primary via-purple-500 to-secondary bg-clip-text text-transparent mb-3 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    <span>आज का ज्ञान</span>
+                    <span className="text-2xl">✨</span>
+                  </h3>
+                  
+                  <div className="relative pl-3 sm:pl-4 border-l-4 border-gradient-to-b from-primary to-secondary">
+                    <p className="text-sm sm:text-base text-foreground leading-relaxed mb-3 font-medium">
+                      "{dailyQuote.text}"
+                    </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground italic flex items-center gap-2">
+                      <span className="w-8 h-0.5 bg-gradient-to-r from-primary to-transparent"></span>
+                      <span>{dailyQuote.author}</span>
+                    </p>
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base sm:text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2">
-                    आज का ज्ञान ✨
-                  </h3>
-                  <p className="text-sm sm:text-base text-foreground/90 leading-relaxed mb-2">
-                    "{dailyQuote.text}"
-                  </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground italic">
-                    — {dailyQuote.author}
-                  </p>
-                </div>
+
+                {/* Daily Themed Clock - Changes each day */}
+                <DailyThemedClock currentTime={currentTime} />
               </div>
             </CardContent>
           </Card>

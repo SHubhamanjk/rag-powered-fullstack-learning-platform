@@ -201,9 +201,12 @@ async def tutorial_ai_chat_endpoint(
     AI companion chat for asking questions about the tutorial.
     Maintains conversation context and references tutorial notes.
     Perfect for clarifying concepts, asking follow-up questions, or getting deeper explanations.
+    
+    Optional: Provide current_timestamp (MM:SS or HH:MM:SS) to add recent video transcript as context.
+    This helps the AI answer questions about what was just explained in the video.
     """
     try:
-        result = await tutorial_ai_chat(req.tutorial_id, req.question)
+        result = await tutorial_ai_chat(req.tutorial_id, req.question, req.current_timestamp)
         return TutorialChatResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

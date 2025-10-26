@@ -218,7 +218,7 @@ Help the user complete this task by providing specific, actionable guidance.
     ai_response = groq_chat_completion(
         messages=messages,
         temperature=0.7,
-        max_tokens=500
+        max_tokens=2000  # Increased to allow complete responses
     )
     
     # Update chat history

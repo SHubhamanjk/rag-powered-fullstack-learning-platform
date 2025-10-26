@@ -292,13 +292,15 @@ class GenerateConsolidatedNotesResponse(BaseModel):
 class TutorialChatRequest(BaseModel):
     tutorial_id: str
     question: str
+    current_timestamp: Optional[str] = None  # Current video position (MM:SS or HH:MM:SS) for context
     
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
                     "tutorial_id": "507f1f77bcf86cd799439011",
-                    "question": "Can you explain what variables are in more detail?"
+                    "question": "Can you explain what variables are in more detail?",
+                    "current_timestamp": "15:30"
                 }
             ]
         }

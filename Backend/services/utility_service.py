@@ -34,7 +34,7 @@ async def rewrite_text(text: str, context: str = "general") -> dict:
         rewritten = groq_chat_completion(
             messages=messages,
             temperature=0.7,
-            max_tokens=500
+            max_tokens=2000  # Increased to ensure complete rewrites
         )
         
         rewritten = rewritten.strip()

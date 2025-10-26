@@ -28,6 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoRewrite } from "@/hooks/use-undo-rewrite";
 import { studySessionService } from "@/services/studySessionService";
 import utilityService from "@/services/utilityService";
 import MarkdownMessage from "@/components/MarkdownMessage";
@@ -43,6 +44,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 
 const StudyMode = () => {
   const { toast } = useToast();
+  const { saveForUndo } = useUndoRewrite();
   const navigate = useNavigate();
 
   // State
@@ -227,10 +229,16 @@ const StudyMode = () => {
       });
 
       if (response.improvement_applied) {
+        // Save original text for undo before replacing
+        const setter = (newValue: string) => {
+          setNewSessionData({ ...newSessionData, [field]: newValue });
+        };
+        saveForUndo(value, `session-${field}`, setter);
+        
         setNewSessionData({ ...newSessionData, [field]: response.rewritten_text });
         toast({
           title: "✨ Text Enhanced",
-          description: "Your text has been improved!",
+          description: "Your text has been improved! (Press Ctrl+Z to undo)",
         });
       } else {
         toast({
@@ -411,10 +419,13 @@ const StudyMode = () => {
       });
 
       if (response.improvement_applied) {
+        // Save original text for undo before replacing
+        saveForUndo(chatInput, 'study-chat-input', setChatInput);
+        
         setChatInput(response.rewritten_text);
         toast({
           title: "✨ Text Enhanced",
-          description: "Your message has been improved!",
+          description: "Your message has been improved! (Press Ctrl+Z to undo)",
         });
       } else {
         toast({

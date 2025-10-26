@@ -92,7 +92,7 @@ async def generate_reply(chat_id: Optional[str], message: str, email: str) -> tu
             messages=user_messages,
             system_instruction=system_instruction,
             temperature=0.7,
-            max_tokens=2000,  # Sufficient for detailed explanations
+            max_tokens=4000,  # Increased to allow complete responses without truncation
             prefer_gemini=False  # Prefer Groq (faster)
         )
         print(f"[Study Chat] Response generated using: {provider_used}")
@@ -225,7 +225,7 @@ async def generate_temporary_reply(
             messages=user_messages,
             system_instruction=system_instruction,
             temperature=0.7,
-            max_tokens=2000,  # Sufficient for detailed explanations
+            max_tokens=4000,  # Increased to allow complete responses without truncation
             prefer_gemini=False  # Prefer Groq (faster)
         )
         print(f"[Temporary Chat] Response generated using: {provider_used}")
