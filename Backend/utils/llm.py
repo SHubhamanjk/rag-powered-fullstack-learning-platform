@@ -93,11 +93,16 @@ def groq_chat_completion(
         
         # Validate response
         if not response or not response.choices or len(response.choices) == 0:
+            print(f"[Groq] No choices in response: {response}")
             raise ValueError("Unable to generate response")
         
         content = response.choices[0].message.content
         
         if content is None or not content.strip():
+            # Log finish reason if available
+            choice = response.choices[0]
+            finish_reason = choice.finish_reason if hasattr(choice, 'finish_reason') else 'unknown'
+            print(f"[Groq] Empty response. Finish reason: {finish_reason}")
             raise ValueError("Unable to generate response")
         
         return content
@@ -105,9 +110,9 @@ def groq_chat_completion(
     except Exception as e:
         error_msg = str(e)
         if "timeout" in error_msg.lower():
-            print(f"[LLM] Groq timeout: {error_msg}")
+            print(f"[Groq] Timeout error: {error_msg}")
             raise ValueError("Request timeout")
-        print(f"[LLM] Groq error: {error_msg}")
+        print(f"[Groq] Error: {error_msg}")
         raise
 
 # ============================================================================
@@ -234,13 +239,35 @@ def gemini_chat_completion(
         raise ValueError("No valid messages")
     
     # Call API
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=gemini_messages,
-        config=config
-    )
-    
-    return response.text
+    try:
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=gemini_messages,
+            config=config
+        )
+        
+        # Check if response is valid
+        if not response or not hasattr(response, 'text'):
+            print(f"[Gemini] Invalid response structure: {response}")
+            raise ValueError("Invalid response from Gemini")
+        
+        # Check if response text is empty
+        response_text = response.text
+        if not response_text or not response_text.strip():
+            # Log candidates to see what happened
+            if hasattr(response, 'candidates') and response.candidates:
+                candidate = response.candidates[0]
+                print(f"[Gemini] Empty response. Finish reason: {candidate.finish_reason if hasattr(candidate, 'finish_reason') else 'unknown'}")
+                if hasattr(candidate, 'safety_ratings'):
+                    print(f"[Gemini] Safety ratings: {candidate.safety_ratings}")
+            raise ValueError("Empty response from Gemini")
+        
+        return response_text
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[Gemini] Error details: {error_msg}")
+        raise
 
 # ============================================================================
 # FALLBACK & RESILIENT CHAT FUNCTIONS
@@ -273,17 +300,29 @@ def chat_completion_with_fallback(
     providers = ["gemini", "groq"] if prefer_gemini else ["groq", "gemini"]
     last_error = None
     
+    # Debug logging - print message preview
+    print(f"[LLM Fallback] Processing {len(messages)} messages")
+    if messages:
+        last_msg = messages[-1]
+        preview = last_msg.get('content', '')[:100]
+        print(f"[LLM Fallback] Last message preview: {preview}...")
+    
     for provider in providers:
         try:
             if provider == "gemini":
+                print(f"[LLM Fallback] Trying Gemini...")
                 response = gemini_chat_completion(
                     messages=messages,
                     system_instruction=system_instruction,
                     temperature=temperature,
                     max_tokens=max_tokens
                 )
+                # Log response preview
+                response_preview = response[:100] if response else "None"
+                print(f"[LLM Fallback] Gemini response preview: {response_preview}...")
                 return (response, "gemini")
             else:  # groq
+                print(f"[LLM Fallback] Trying Groq...")
                 # Convert to Groq format (add system instruction as first message if provided)
                 groq_messages = []
                 if system_instruction:
@@ -295,6 +334,9 @@ def chat_completion_with_fallback(
                     temperature=temperature,
                     max_tokens=max_tokens
                 )
+                # Log response preview
+                response_preview = response[:100] if response else "None"
+                print(f"[LLM Fallback] Groq response preview: {response_preview}...")
                 return (response, "groq")
                 
         except Exception as e:

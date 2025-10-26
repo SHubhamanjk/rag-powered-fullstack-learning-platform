@@ -92,9 +92,11 @@ async def generate_reply(chat_id: Optional[str], message: str, email: str) -> tu
             messages=user_messages,
             system_instruction=system_instruction,
             temperature=0.7,
+            max_tokens=2000,  # Sufficient for detailed explanations
             prefer_gemini=False  # Prefer Groq (faster)
         )
         print(f"[Study Chat] Response generated using: {provider_used}")
+        print(f"[Study Chat] Response length: {len(reply) if reply else 0} characters")
         
     except Exception as e:
         print(f"[Study Chat] All providers failed: {str(e)}")
@@ -223,9 +225,11 @@ async def generate_temporary_reply(
             messages=user_messages,
             system_instruction=system_instruction,
             temperature=0.7,
+            max_tokens=2000,  # Sufficient for detailed explanations
             prefer_gemini=False  # Prefer Groq (faster)
         )
         print(f"[Temporary Chat] Response generated using: {provider_used}")
+        print(f"[Temporary Chat] Response length: {len(reply) if reply else 0} characters")
         return reply
         
     except Exception as e:

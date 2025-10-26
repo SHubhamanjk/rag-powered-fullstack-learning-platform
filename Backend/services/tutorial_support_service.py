@@ -389,15 +389,17 @@ async def tutorial_ai_chat(tutorial_id: str, question: str) -> Dict[str, Any]:
             messages=chat_messages,
             system_instruction=system_prompt,
             temperature=0.6,
-            max_tokens=400,
+            max_tokens=1500,  # Increased from 400 to handle longer responses
             prefer_gemini=True  # Try Gemini first like study sessions
         )
         
         # Log which provider was used
         print(f"[Tutorial Chat] Response generated using: {provider_used}")
+        print(f"[Tutorial Chat] Response length: {len(answer) if answer else 0} characters")
         
         # Check if answer is None or empty
         if not answer or not answer.strip():
+            print(f"[Tutorial Chat] WARNING: Empty response received from {provider_used}")
             answer = "I'm having trouble understanding that right now. Could you try rephrasing your question?"
             
     except Exception as e:
