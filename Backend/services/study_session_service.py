@@ -12,7 +12,7 @@ import base64
 from utils.db import get_study_sessions_collection
 from utils.timezone import get_current_time
 from utils.cache import cache_response, invalidate_cache
-from utils.llm import gemini_chat_completion, gemini_generate_content, chat_completion_with_fallback
+from utils.llm import gemini_chat_completion, gemini_generate_content, groq_chat_completion
 from prompts import (
     STUDY_SESSION_ASSISTANT_PROMPT,
     QUIZ_GENERATION_PROMPT,
@@ -391,7 +391,7 @@ STUDY SESSION INFORMATION:
         "content": question
     })
     
-    # Call LLM with automatic fallback (Gemini -> Groq)
+    # Call LLM: Gemini first, fallback to Groq
     # Extract system instruction from first message
     system_instruction = None
     user_messages = messages
@@ -399,20 +399,48 @@ STUDY SESSION INFORMATION:
         system_instruction = messages[0]["content"]
         user_messages = messages[1:]
     
+    ai_response = None
+    provider_used = None
+    
+    # Try Gemini first
     try:
-        ai_response, provider_used = chat_completion_with_fallback(
+        print("[Study Session] Calling Gemini...")
+        ai_response = gemini_chat_completion(
             messages=user_messages,
             system_instruction=system_instruction,
             temperature=0.7,
-            max_tokens=4000,  # Increased to allow complete responses without truncation
-            prefer_gemini=True  # Try Gemini first
+            max_tokens=4000
         )
-        print(f"[Study Session] Response generated using: {provider_used}")
+        provider_used = "gemini"
+        print(f"[Study Session] Gemini succeeded ({len(ai_response)} chars)")
         
-    except Exception as e:
-        # Log error and provide fallback response
-        print(f"[Study Session] All providers failed: {str(e)}")
-        ai_response = "I'm temporarily unable to respond. Please try again in a moment."
+    except Exception as gemini_error:
+        print(f"[Study Session] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Study Session] Falling back to Groq...")
+            # For Groq, add system instruction as first message
+            groq_messages = []
+            if system_instruction:
+                groq_messages.append({"role": "system", "content": system_instruction})
+            groq_messages.extend(user_messages)
+            
+            ai_response = groq_chat_completion(
+                messages=groq_messages,
+                temperature=0.7,
+                max_tokens=4000
+            )
+            provider_used = "groq"
+            print(f"[Study Session] Groq succeeded ({len(ai_response)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Study Session] Groq also failed: {str(groq_error)[:100]}")
+            ai_response = "I'm temporarily unable to respond. Please try again in a moment."
+            provider_used = "none"
+    
+    if provider_used and provider_used != "none":
+        print(f"[Study Session] Response generated using: {provider_used}")
     
     # Update chat history
     current_time = get_current_time().isoformat()
@@ -497,15 +525,37 @@ Generate a comprehensive quiz covering the topics studied in this session.
 Focus on the concepts discussed and align with the syllabus and PYQ patterns.
 """
     
-    # Call Gemini via centralized LLM utility
-    quiz_json = gemini_generate_content(
-        prompt=quiz_prompt,
-        system_instruction=QUIZ_GENERATION_PROMPT,
-        temperature=0.3,
-        max_tokens=4000
-    )
-    
-    # quiz_json already contains the response from gemini_generate_content
+    # Quiz Generation: Gemini first, fallback to Groq
+    quiz_json = None
+    try:
+        print("[Quiz Generation] Calling Gemini...")
+        quiz_json = gemini_generate_content(
+            prompt=quiz_prompt,
+            system_instruction=QUIZ_GENERATION_PROMPT,
+            temperature=0.3,
+            max_tokens=4000
+        )
+        print(f"[Quiz Generation] Gemini succeeded ({len(quiz_json)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Quiz Generation] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Quiz Generation] Falling back to Groq...")
+            quiz_json = groq_chat_completion(
+                messages=[
+                    {"role": "system", "content": QUIZ_GENERATION_PROMPT},
+                    {"role": "user", "content": quiz_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=4000
+            )
+            print(f"[Quiz Generation] Groq succeeded ({len(quiz_json)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Quiz Generation] Groq also failed: {str(groq_error)[:100]}")
+            raise ValueError("Failed to generate quiz using both providers")
     
     try:
         if "```json" in quiz_json:
@@ -670,15 +720,38 @@ STUDY SESSION DISCUSSION:
 Analyze the study session and determine the optimal number of mindmaps (1-3) to visualize the concepts covered.
 """
     
-    # Call Gemini via centralized LLM utility
-    analysis_json = gemini_generate_content(
-        prompt=analysis_prompt,
-        system_instruction=MINDMAP_ANALYSIS_PROMPT,
-        temperature=0.3,
-        max_tokens=2000
-    )
+    # Mindmap Analysis: Gemini first, fallback to Groq
+    analysis_json = None
+    try:
+        print("[Mindmap Analysis] Calling Gemini...")
+        analysis_json = gemini_generate_content(
+            prompt=analysis_prompt,
+            system_instruction=MINDMAP_ANALYSIS_PROMPT,
+            temperature=0.3,
+            max_tokens=2000
+        )
+        print(f"[Mindmap Analysis] Gemini succeeded ({len(analysis_json)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Mindmap Analysis] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Mindmap Analysis] Falling back to Groq...")
+            analysis_json = groq_chat_completion(
+                messages=[
+                    {"role": "system", "content": MINDMAP_ANALYSIS_PROMPT},
+                    {"role": "user", "content": analysis_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=2000
+            )
+            print(f"[Mindmap Analysis] Groq succeeded ({len(analysis_json)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Mindmap Analysis] Groq also failed: {str(groq_error)[:100]}")
+            raise ValueError("Failed to analyze mindmap using both providers")
     
-    # analysis_json already contains the response from gemini_generate_content
     if not analysis_json or not analysis_json.strip():
         raise ValueError("Empty response from mindmap analysis")
     
@@ -733,19 +806,41 @@ CONTEXT:
 Create a detailed mindmap structure for this topic.
 """
         
-        # Call Gemini via centralized LLM utility
+        # Mindmap Generation: Gemini first, fallback to Groq
+        mindmap_json = None
         try:
+            print(f"[Mindmap Generation {idx}] Calling Gemini...")
             mindmap_json = gemini_generate_content(
                 prompt=generation_prompt,
                 system_instruction=MINDMAP_GENERATION_PROMPT,
                 temperature=0.3,
                 max_tokens=3000
             )
-            if not mindmap_json or not mindmap_json.strip():
+            print(f"[Mindmap Generation {idx}] Gemini succeeded ({len(mindmap_json)} chars)")
+            
+        except Exception as gemini_error:
+            print(f"[Mindmap Generation {idx}] Gemini failed: {str(gemini_error)[:100]}")
+            
+            # Fallback to Groq
+            try:
+                print(f"[Mindmap Generation {idx}] Falling back to Groq...")
+                mindmap_json = groq_chat_completion(
+                    messages=[
+                        {"role": "system", "content": MINDMAP_GENERATION_PROMPT},
+                        {"role": "user", "content": generation_prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=3000
+                )
+                print(f"[Mindmap Generation {idx}] Groq succeeded ({len(mindmap_json)} chars)")
+                
+            except Exception as groq_error:
+                print(f"[Mindmap Generation {idx}] Both providers failed")
                 continue
-            mindmap_json = mindmap_json.strip()
-        except Exception as e:
+        
+        if not mindmap_json or not mindmap_json.strip():
             continue
+        mindmap_json = mindmap_json.strip()
         
         try:
             if "```json" in mindmap_json:
@@ -886,13 +981,37 @@ Evaluate the following descriptive answers:
 Provide scores and feedback for each question, plus overall analysis.
 """
     
-    # Call Gemini via centralized LLM utility
-    eval_json = gemini_generate_content(
-        prompt=llm_eval_prompt,
-        system_instruction=QUIZ_EVALUATION_PROMPT,
-        temperature=0.3,
-        max_tokens=3000
-    )
+    # Quiz Evaluation: Gemini first, fallback to Groq
+    eval_json = None
+    try:
+        print("[Quiz Evaluation] Calling Gemini...")
+        eval_json = gemini_generate_content(
+            prompt=llm_eval_prompt,
+            system_instruction=QUIZ_EVALUATION_PROMPT,
+            temperature=0.3,
+            max_tokens=3000
+        )
+        print(f"[Quiz Evaluation] Gemini succeeded ({len(eval_json)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Quiz Evaluation] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Quiz Evaluation] Falling back to Groq...")
+            eval_json = groq_chat_completion(
+                messages=[
+                    {"role": "system", "content": QUIZ_EVALUATION_PROMPT},
+                    {"role": "user", "content": llm_eval_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=3000
+            )
+            print(f"[Quiz Evaluation] Groq succeeded ({len(eval_json)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Quiz Evaluation] Groq also failed: {str(groq_error)[:100]}")
+            raise ValueError("Failed to evaluate quiz using both providers")
     
     try:
         if "```json" in eval_json:

@@ -1,10 +1,11 @@
 """
 Centralized LLM (Large Language Model) client management
-Supports multiple providers for better rate limit distribution and easy switching
+Supports multiple providers with separate, clean implementations
+Each provider has its own dedicated functions
 """
 
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from dotenv import load_dotenv
 from groq import Groq
 from google import genai
@@ -16,7 +17,7 @@ load_dotenv()
 # CLIENT INITIALIZATION
 # ============================================================================
 
-# Groq Client - Used for general chat, friend chat, todo assistant
+# Groq Client - Used for general chat, friend chat, todo assistant, utility functions
 _groq_client = None
 def get_groq_client() -> Groq:
     """Get or create Groq client instance"""
@@ -41,11 +42,11 @@ def get_gemini_client() -> genai.Client:
     return _gemini_client
 
 # Model configurations
-GROQ_MODEL = os.getenv("GROQ_MODEL")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
 
 # Timeout configuration
-GROQ_TIMEOUT = 60  # seconds
+GROQ_TIMEOUT = 120  # seconds
 
 # ============================================================================
 # GROQ HELPER FUNCTIONS
@@ -116,23 +117,26 @@ def groq_chat_completion(
         raise
 
 # ============================================================================
-# GEMINI HELPER FUNCTIONS
+# GEMINI FUNCTIONS - Using Official Gemini SDK
 # ============================================================================
 
 def gemini_generate_content(
     prompt: str,
     system_instruction: Optional[str] = None,
     temperature: float = 0.7,
-    max_tokens: Optional[int] = None
+    max_tokens: Optional[int] = None,
+    thinking_budget: Optional[int] = None
 ) -> str:
     """
-    Generate content using Gemini
+    Generate content using Gemini API (for simple prompts without chat history)
+    Uses the official Gemini SDK client.models.generate_content method
     
     Args:
         prompt: The user prompt/question
         system_instruction: Optional system instruction for behavior
         temperature: Sampling temperature (0-2)
         max_tokens: Maximum tokens to generate
+        thinking_budget: Optional thinking budget (0 to disable thinking for Gemini 2.5+)
     
     Returns:
         Generated text response
@@ -154,6 +158,10 @@ def gemini_generate_content(
     if system_instruction:
         config_params["system_instruction"] = system_instruction
     
+    # Add thinking config if specified (for Gemini 2.5+ models)
+    if thinking_budget is not None:
+        config_params["thinking_config"] = types.ThinkingConfig(thinking_budget=thinking_budget)
+    
     config = types.GenerateContentConfig(**config_params)
     
     # Build request with error handling
@@ -166,12 +174,14 @@ def gemini_generate_content(
         
         # Check if response text is valid
         if not response or not hasattr(response, 'text'):
+            print("[Gemini] Invalid response structure")
             raise ValueError("Unable to generate response")
         
         response_text = response.text
         
         # Check if response is None or empty
         if response_text is None or not response_text.strip():
+            print("[Gemini] Empty response")
             raise ValueError("Unable to generate response")
         
         return response_text
@@ -181,28 +191,35 @@ def gemini_generate_content(
         error_msg = str(e)
         if "content" in error_msg.lower() and "filter" in error_msg.lower():
             # Log internally but don't expose details
-            print(f"[LLM] Content filtering triggered: {error_msg}")
+            print(f"[Gemini] Content filtering triggered: {error_msg}")
             raise ValueError("Unable to process request")
-        print(f"[LLM] Gemini generate error: {error_msg}")
+        print(f"[Gemini] Generate error: {error_msg}")
         raise
 
 def gemini_chat_completion(
     messages: List[Dict[str, str]],
     system_instruction: Optional[str] = None,
     temperature: float = 0.7,
-    max_tokens: Optional[int] = None
+    max_tokens: Optional[int] = None,
+    thinking_budget: Optional[int] = None
 ) -> str:
     """
-    Generate chat completion using Gemini - Simple version that works
+    Generate chat completion using Gemini API (for multi-turn conversations)
+    Uses the official Gemini SDK client.models.generate_content method
     
     Args:
-        messages: List of message dicts with 'role' and 'content'
-        system_instruction: Optional system instruction
+        messages: List of message dicts with 'role' ('user' or 'assistant') and 'content'
+        system_instruction: Optional system instruction for behavior
         temperature: Sampling temperature (0-2)
         max_tokens: Maximum tokens to generate
+        thinking_budget: Optional thinking budget (0 to disable thinking for Gemini 2.5+)
     
     Returns:
         Generated text response
+    
+    Raises:
+        ValueError: If response is empty or invalid
+        Exception: For other API errors
     """
     client = get_gemini_client()
     
@@ -213,10 +230,14 @@ def gemini_chat_completion(
     if system_instruction:
         config_params["system_instruction"] = system_instruction
     
+    # Add thinking config if specified (for Gemini 2.5+ models)
+    if thinking_budget is not None:
+        config_params["thinking_config"] = types.ThinkingConfig(thinking_budget=thinking_budget)
+    
     config = types.GenerateContentConfig(**config_params)
     
-    # Convert messages to Gemini format
-    gemini_messages = []
+    # Convert messages to Gemini format (Content objects with parts)
+    gemini_contents = []
     for msg in messages:
         role = msg.get("role", "")
         content = msg.get("content", "")
@@ -230,57 +251,57 @@ def gemini_chat_completion(
         elif role == "system":
             continue  # Skip system messages (handled by system_instruction)
         
-        gemini_messages.append({
+        # Build Content object with parts
+        gemini_contents.append({
             "role": role,
             "parts": [{"text": content}]
         })
     
-    if not gemini_messages:
-        raise ValueError("No valid messages")
+    if not gemini_contents:
+        raise ValueError("No valid messages provided")
     
-    # Call API
+    # Call Gemini API
     try:
         response = client.models.generate_content(
             model=GEMINI_MODEL,
-            contents=gemini_messages,
+            contents=gemini_contents,
             config=config
         )
         
         # Check if response is valid
         if not response or not hasattr(response, 'text'):
-            print(f"[Gemini] Invalid response structure: {response}")
+            print("[Gemini] Invalid response structure")
             raise ValueError("Invalid response from Gemini")
         
-        # Check if response text is empty
         response_text = response.text
         
-        # Log finish reason for all responses (helps diagnose truncation issues)
+        # Log finish reason for diagnostics
         if hasattr(response, 'candidates') and response.candidates:
             candidate = response.candidates[0]
             finish_reason = candidate.finish_reason if hasattr(candidate, 'finish_reason') else 'unknown'
-            print(f"[Gemini] Finish reason: {finish_reason}")
+            print(f"[Gemini Chat] Finish reason: {finish_reason}")
             
             # Warn if response was truncated
             if finish_reason in ['MAX_TOKENS', 'LENGTH']:
-                print("[Gemini] WARNING: Response truncated due to token limit!")
+                print("[Gemini Chat] WARNING: Response truncated due to token limit!")
         
         if not response_text or not response_text.strip():
             # Log candidates to see what happened
             if hasattr(response, 'candidates') and response.candidates:
                 candidate = response.candidates[0]
                 if hasattr(candidate, 'safety_ratings'):
-                    print(f"[Gemini] Safety ratings: {candidate.safety_ratings}")
+                    print(f"[Gemini Chat] Safety ratings: {candidate.safety_ratings}")
             raise ValueError("Empty response from Gemini")
         
         return response_text
         
     except Exception as e:
         error_msg = str(e)
-        print(f"[Gemini] Error details: {error_msg}")
+        print(f"[Gemini Chat] Error: {error_msg}")
         raise
 
 # ============================================================================
-# FALLBACK & RESILIENT CHAT FUNCTIONS
+# ORCHESTRATION FUNCTIONS WITH FALLBACK
 # ============================================================================
 
 def chat_completion_with_fallback(
@@ -289,9 +310,10 @@ def chat_completion_with_fallback(
     temperature: float = 0.7,
     max_tokens: Optional[int] = None,
     prefer_gemini: bool = True
-) -> tuple[str, str]:
+) -> Tuple[str, str]:
     """
-    Chat completion with automatic fallback between Gemini and Groq
+    Orchestrates chat completion with automatic fallback between providers
+    This function calls separate provider functions and handles fallback logic
     
     Args:
         messages: List of message dicts with 'role' and 'content'
@@ -310,30 +332,29 @@ def chat_completion_with_fallback(
     providers = ["gemini", "groq"] if prefer_gemini else ["groq", "gemini"]
     last_error = None
     
-    # Debug logging - print message preview
-    print(f"[LLM Fallback] Processing {len(messages)} messages")
+    # Debug logging
+    print(f"[Fallback] Processing {len(messages)} messages (prefer: {providers[0]})")
     if messages:
         last_msg = messages[-1]
         preview = last_msg.get('content', '')[:100]
-        print(f"[LLM Fallback] Last message preview: {preview}...")
+        print(f"[Fallback] Last message: {preview}...")
     
     for provider in providers:
         try:
             if provider == "gemini":
-                print(f"[LLM Fallback] Trying Gemini...")
+                print("[Fallback] Calling Gemini...")
                 response = gemini_chat_completion(
                     messages=messages,
                     system_instruction=system_instruction,
                     temperature=temperature,
                     max_tokens=max_tokens
                 )
-                # Log response preview
-                response_preview = response[:100] if response else "None"
-                print(f"[LLM Fallback] Gemini response preview: {response_preview}...")
+                print(f"[Fallback] Gemini succeeded ({len(response)} chars)")
                 return (response, "gemini")
+                
             else:  # groq
-                print(f"[LLM Fallback] Trying Groq...")
-                # Convert to Groq format (add system instruction as first message if provided)
+                print("[Fallback] Calling Groq...")
+                # For Groq, add system instruction as first message if provided
                 groq_messages = []
                 if system_instruction:
                     groq_messages.append({"role": "system", "content": system_instruction})
@@ -344,19 +365,17 @@ def chat_completion_with_fallback(
                     temperature=temperature,
                     max_tokens=max_tokens
                 )
-                # Log response preview
-                response_preview = response[:100] if response else "None"
-                print(f"[LLM Fallback] Groq response preview: {response_preview}...")
+                print(f"[Fallback] Groq succeeded ({len(response)} chars)")
                 return (response, "groq")
                 
         except Exception as e:
             last_error = e
-            # Log internally only
-            print(f"[LLM Fallback] {provider.capitalize()} failed: {str(e)[:100]}")
+            error_preview = str(e)[:150]
+            print(f"[Fallback] {provider.capitalize()} failed: {error_preview}")
             continue
     
-    # If we get here, all providers failed - use generic user-friendly message
-    print(f"[LLM Fallback] All providers failed. Last error: {str(last_error)}")
+    # If we get here, all providers failed
+    print(f"[Fallback] All providers failed. Last error: {str(last_error)}")
     raise Exception("Unable to generate response at this time")
 
 # ============================================================================
@@ -385,16 +404,22 @@ def get_provider_info() -> Dict[str, Any]:
 """
 USAGE GUIDELINES:
 
-1. For General Chat, Friend Chat, Todo Assistant:
+RECOMMENDED: Use separate provider functions directly for better control
+
+1. For General Chat, Friend Chat, Todo Assistant (GROQ - Fast):
    from utils.llm import groq_chat_completion
    
    messages = [
        {"role": "system", "content": "You are a helpful assistant"},
        {"role": "user", "content": "Hello!"}
    ]
-   response = groq_chat_completion(messages)
+   response = groq_chat_completion(
+       messages=messages,
+       temperature=0.7,
+       max_tokens=2000
+   )
 
-2. For Study Sessions, Tutorial Support (with chat history):
+2. For Study Sessions, Tutorial Support (GEMINI - Powerful):
    from utils.llm import gemini_chat_completion
    
    messages = [
@@ -405,22 +430,41 @@ USAGE GUIDELINES:
    response = gemini_chat_completion(
        messages=messages,
        system_instruction="You are a patient tutor",
-       temperature=0.7
+       temperature=0.7,
+       max_tokens=4000
    )
 
-3. For Simple Generation (no history):
+3. For Simple Generation (no chat history):
    from utils.llm import gemini_generate_content
    
    response = gemini_generate_content(
        prompt="Generate a quiz question about biology",
        system_instruction="You are an exam creator",
-       temperature=0.3
+       temperature=0.3,
+       thinking_budget=0  # Disable thinking for faster responses
    )
 
-4. Check Provider Availability:
+4. For Fallback Support (tries one provider, falls back to another):
+   from utils.llm import chat_completion_with_fallback
+   
+   response, provider = chat_completion_with_fallback(
+       messages=messages,
+       system_instruction="You are a helpful assistant",
+       temperature=0.7,
+       prefer_gemini=False  # Try Groq first, fallback to Gemini
+   )
+   print(f"Response from: {provider}")
+
+5. Check Provider Availability:
    from utils.llm import get_provider_info
    
    info = get_provider_info()
    print(info)
+
+ARCHITECTURE:
+- Each provider (Groq, Gemini) has separate, independent functions
+- Fallback function is an orchestrator that calls provider functions
+- Use provider functions directly when you don't need fallback
+- Use fallback function when you need automatic failover
 """
 

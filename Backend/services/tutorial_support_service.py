@@ -8,7 +8,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from utils.db import get_tutorial_support_collection
 from utils.timezone import get_current_time
 from utils.cache import cache_response, invalidate_cache
-from utils.llm import gemini_chat_completion, gemini_generate_content, chat_completion_with_fallback
+from utils.llm import gemini_chat_completion, gemini_generate_content, groq_chat_completion
 from prompts import (
     PRETTIFY_NOTES_PROMPT, 
     DETAILED_NOTES_PROMPT, 
@@ -233,13 +233,37 @@ async def prettify_notes(tutorial_id: str) -> Dict[str, Any]:
         f"DO NOT include any timestamps in your output."
     )
     
-    # Call Gemini via centralized LLM utility
-    prettified_notes = gemini_generate_content(
-        prompt=user_prompt,
-        system_instruction=PRETTIFY_NOTES_PROMPT,
-        temperature=0.3,
-        max_tokens=3000
-    )
+    # Prettify Notes: Gemini first, fallback to Groq
+    prettified_notes = None
+    try:
+        print("[Prettify Notes] Calling Gemini...")
+        prettified_notes = gemini_generate_content(
+            prompt=user_prompt,
+            system_instruction=PRETTIFY_NOTES_PROMPT,
+            temperature=0.3,
+            max_tokens=3000
+        )
+        print(f"[Prettify Notes] Gemini succeeded ({len(prettified_notes)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Prettify Notes] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Prettify Notes] Falling back to Groq...")
+            prettified_notes = groq_chat_completion(
+                messages=[
+                    {"role": "system", "content": PRETTIFY_NOTES_PROMPT},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=3000
+            )
+            print(f"[Prettify Notes] Groq succeeded ({len(prettified_notes)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Prettify Notes] Groq also failed: {str(groq_error)[:100]}")
+            raise ValueError("Failed to prettify notes using both providers")
     
     return {
         "tutorial_id": tutorial["tutorial_id"],
@@ -279,13 +303,37 @@ async def generate_detailed_notes(tutorial_id: str) -> Dict[str, Any]:
         f"DO NOT include any timestamps in your output."
     )
     
-    # Call Gemini via centralized LLM utility
-    detailed_notes = gemini_generate_content(
-        prompt=user_prompt,
-        system_instruction=DETAILED_NOTES_PROMPT,
-        temperature=0.4,
-        max_tokens=5000
-    )
+    # Detailed Notes: Gemini first, fallback to Groq
+    detailed_notes = None
+    try:
+        print("[Detailed Notes] Calling Gemini...")
+        detailed_notes = gemini_generate_content(
+            prompt=user_prompt,
+            system_instruction=DETAILED_NOTES_PROMPT,
+            temperature=0.4,
+            max_tokens=5000
+        )
+        print(f"[Detailed Notes] Gemini succeeded ({len(detailed_notes)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Detailed Notes] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Detailed Notes] Falling back to Groq...")
+            detailed_notes = groq_chat_completion(
+                messages=[
+                    {"role": "system", "content": DETAILED_NOTES_PROMPT},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.4,
+                max_tokens=5000
+            )
+            print(f"[Detailed Notes] Groq succeeded ({len(detailed_notes)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Detailed Notes] Groq also failed: {str(groq_error)[:100]}")
+            raise ValueError("Failed to generate detailed notes using both providers")
     
     return {
         "tutorial_id": tutorial["tutorial_id"],
@@ -403,28 +451,59 @@ async def tutorial_ai_chat(tutorial_id: str, question: str, current_timestamp: O
             else:
                 chat_messages.append(msg)
         
-        # Use Groq for faster tutorial chat responses
-        # Prefer Groq first for quick, conversational responses
-        answer, provider_used = chat_completion_with_fallback(
-            messages=chat_messages,
-            system_instruction=system_prompt,
-            temperature=0.6,
-            max_tokens=4000,  # Increased to allow complete responses without truncation
-            prefer_gemini=False  # Prefer Groq for faster responses
-        )
+        # Tutorial Chat: Groq first (fast), fallback to Gemini
+        answer = None
+        provider_used = None
         
-        # Log which provider was used
-        print(f"[Tutorial Chat] Response generated using: {provider_used}")
-        print(f"[Tutorial Chat] Response length: {len(answer) if answer else 0} characters")
+        # Try Groq first
+        try:
+            print("[Tutorial Chat] Calling Groq...")
+            # For Groq, add system instruction as first message
+            groq_messages = []
+            if system_prompt:
+                groq_messages.append({"role": "system", "content": system_prompt})
+            groq_messages.extend(chat_messages)
+            
+            answer = groq_chat_completion(
+                messages=groq_messages,
+                temperature=0.6,
+                max_tokens=4000
+            )
+            provider_used = "groq"
+            print(f"[Tutorial Chat] Groq succeeded ({len(answer)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Tutorial Chat] Groq failed: {str(groq_error)[:100]}")
+            
+            # Fallback to Gemini
+            try:
+                print("[Tutorial Chat] Falling back to Gemini...")
+                answer = gemini_chat_completion(
+                    messages=chat_messages,
+                    system_instruction=system_prompt,
+                    temperature=0.6,
+                    max_tokens=4000
+                )
+                provider_used = "gemini"
+                print(f"[Tutorial Chat] Gemini succeeded ({len(answer)} chars)")
+                
+            except Exception as gemini_error:
+                print(f"[Tutorial Chat] Gemini also failed: {str(gemini_error)[:100]}")
+                answer = "I'm temporarily unable to respond. Please try again in a moment."
+                provider_used = "none"
+        
+        if provider_used and provider_used != "none":
+            print(f"[Tutorial Chat] Response generated using: {provider_used}")
+            print(f"[Tutorial Chat] Response length: {len(answer) if answer else 0} characters")
         
         # Check if answer is None or empty
         if not answer or not answer.strip():
-            print(f"[Tutorial Chat] WARNING: Empty response received from {provider_used}")
+            print("[Tutorial Chat] WARNING: Empty response received")
             answer = "I'm having trouble understanding that right now. Could you try rephrasing your question?"
             
     except Exception as e:
-        # Log the error for debugging (keep internal details in logs only)
-        print(f"Error in tutorial AI chat (all providers failed): {str(e)}")
+        # Log the error for debugging
+        print(f"Error in tutorial AI chat: {str(e)}")
         answer = "I'm temporarily unable to respond. Please try again in a moment."
     
     # Save to chat history
@@ -738,13 +817,37 @@ Generate questions that would test a student's understanding of the fundamental 
 Make the questions educational and comprehensive, covering both theoretical and practical aspects.
 """
     
-    # Call Gemini via centralized LLM utility
-    quiz_json = gemini_generate_content(
-        prompt=user_prompt,
-        system_instruction=QUIZ_GENERATION_PROMPT,
-        temperature=0.3,
-        max_tokens=4000
-    )
+    # Quiz Generation: Gemini first, fallback to Groq
+    quiz_json = None
+    try:
+        print("[Tutorial Quiz] Calling Gemini...")
+        quiz_json = gemini_generate_content(
+            prompt=user_prompt,
+            system_instruction=QUIZ_GENERATION_PROMPT,
+            temperature=0.3,
+            max_tokens=4000
+        )
+        print(f"[Tutorial Quiz] Gemini succeeded ({len(quiz_json)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Tutorial Quiz] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Tutorial Quiz] Falling back to Groq...")
+            quiz_json = groq_chat_completion(
+                messages=[
+                    {"role": "system", "content": QUIZ_GENERATION_PROMPT},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=4000
+            )
+            print(f"[Tutorial Quiz] Groq succeeded ({len(quiz_json)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Tutorial Quiz] Groq also failed: {str(groq_error)[:100]}")
+            raise ValueError("Failed to generate tutorial quiz using both providers")
     
     # Try to extract JSON from response
     try:
@@ -920,13 +1023,37 @@ Evaluate the following descriptive answers:
 Provide scores and feedback for each question, plus overall analysis.
 """
     
-    # Call Gemini via centralized LLM utility
-    eval_json = gemini_generate_content(
-        prompt=llm_eval_prompt,
-        system_instruction=QUIZ_EVALUATION_PROMPT,
-        temperature=0.3,
-        max_tokens=3000
-    )
+    # Tutorial Quiz Evaluation: Gemini first, fallback to Groq
+    eval_json = None
+    try:
+        print("[Tutorial Quiz Eval] Calling Gemini...")
+        eval_json = gemini_generate_content(
+            prompt=llm_eval_prompt,
+            system_instruction=QUIZ_EVALUATION_PROMPT,
+            temperature=0.3,
+            max_tokens=3000
+        )
+        print(f"[Tutorial Quiz Eval] Gemini succeeded ({len(eval_json)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Tutorial Quiz Eval] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Tutorial Quiz Eval] Falling back to Groq...")
+            eval_json = groq_chat_completion(
+                messages=[
+                    {"role": "system", "content": QUIZ_EVALUATION_PROMPT},
+                    {"role": "user", "content": llm_eval_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=3000
+            )
+            print(f"[Tutorial Quiz Eval] Groq succeeded ({len(eval_json)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Tutorial Quiz Eval] Groq also failed: {str(groq_error)[:100]}")
+            raise ValueError("Failed to evaluate tutorial quiz using both providers")
     
     try:
         if "```json" in eval_json:
@@ -1180,13 +1307,37 @@ NOTES:
 Analyze these notes and determine the optimal number of mindmaps (1-5) to visualize the content effectively.
 """
     
-    # Call Gemini via centralized LLM utility
-    analysis_json = gemini_generate_content(
-        prompt=analysis_prompt,
-        system_instruction=MINDMAP_ANALYSIS_PROMPT,
-        temperature=0.3,
-        max_tokens=2000
-    )
+    # Tutorial Mindmap Analysis: Gemini first, fallback to Groq
+    analysis_json = None
+    try:
+        print("[Tutorial Mindmap Analysis] Calling Gemini...")
+        analysis_json = gemini_generate_content(
+            prompt=analysis_prompt,
+            system_instruction=MINDMAP_ANALYSIS_PROMPT,
+            temperature=0.3,
+            max_tokens=2000
+        )
+        print(f"[Tutorial Mindmap Analysis] Gemini succeeded ({len(analysis_json)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Tutorial Mindmap Analysis] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Tutorial Mindmap Analysis] Falling back to Groq...")
+            analysis_json = groq_chat_completion(
+                messages=[
+                    {"role": "system", "content": MINDMAP_ANALYSIS_PROMPT},
+                    {"role": "user", "content": analysis_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=2000
+            )
+            print(f"[Tutorial Mindmap Analysis] Groq succeeded ({len(analysis_json)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Tutorial Mindmap Analysis] Groq also failed: {str(groq_error)[:100]}")
+            raise ValueError("Failed to analyze tutorial mindmap using both providers")
     
     try:
         # Remove markdown code blocks if present
@@ -1240,16 +1391,37 @@ Create a detailed mindmap structure for this specific topic based on the notes p
 Focus specifically on the concepts and details related to: {focus_area}
 """
         
-        # Call Gemini via centralized LLM utility
+        # Tutorial Mindmap Generation: Gemini first, fallback to Groq
+        mindmap_json = None
         try:
+            print(f"[Tutorial Mindmap Gen {idx}] Calling Gemini...")
             mindmap_json = gemini_generate_content(
                 prompt=generation_prompt,
                 system_instruction=MINDMAP_GENERATION_PROMPT,
                 temperature=0.3,
                 max_tokens=3000
             )
-        except Exception:
-            continue  # Skip this mindmap if generation fails
+            print(f"[Tutorial Mindmap Gen {idx}] Gemini succeeded ({len(mindmap_json)} chars)")
+            
+        except Exception as gemini_error:
+            print(f"[Tutorial Mindmap Gen {idx}] Gemini failed: {str(gemini_error)[:100]}")
+            
+            # Fallback to Groq
+            try:
+                print(f"[Tutorial Mindmap Gen {idx}] Falling back to Groq...")
+                mindmap_json = groq_chat_completion(
+                    messages=[
+                        {"role": "system", "content": MINDMAP_GENERATION_PROMPT},
+                        {"role": "user", "content": generation_prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=3000
+                )
+                print(f"[Tutorial Mindmap Gen {idx}] Groq succeeded ({len(mindmap_json)} chars)")
+                
+            except Exception as groq_error:
+                print(f"[Tutorial Mindmap Gen {idx}] Both providers failed")
+                continue  # Skip this mindmap if both fail
         
         try:
             # Remove markdown code blocks if present
@@ -1452,19 +1624,40 @@ Notes from {len(tutorials)} tutorial(s) (ordered chronologically from oldest to 
 
 {combined_notes}"""
     
+    # Note Consolidation: Gemini first, fallback to Groq
     try:
-        consolidated_notes, provider_used = chat_completion_with_fallback(
+        print("[Consolidated Notes] Calling Gemini...")
+        consolidated_notes = gemini_chat_completion(
             messages=[{"role": "user", "content": user_prompt}],
             system_instruction=CONSOLIDATED_NOTES_PROMPT,
             temperature=0.6,
-            max_tokens=8000,  # Increased for detailed, comprehensive output (3000-8000+ words)
-            prefer_gemini=True
+            max_tokens=8000
         )
-        print(f"[Consolidated Notes] Generated using: {provider_used}")
-    except Exception as e:
-        print(f"[Consolidated Notes] Error: {str(e)}")
-        # Fallback: just return the combined notes
-        consolidated_notes = combined_notes
+        print(f"[Consolidated Notes] Gemini succeeded ({len(consolidated_notes)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Consolidated Notes] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Consolidated Notes] Falling back to Groq...")
+            # For Groq, add system instruction as first message
+            messages = [
+                {"role": "system", "content": CONSOLIDATED_NOTES_PROMPT},
+                {"role": "user", "content": user_prompt}
+            ]
+            
+            consolidated_notes = groq_chat_completion(
+                messages=messages,
+                temperature=0.6,
+                max_tokens=8000
+            )
+            print(f"[Consolidated Notes] Groq succeeded ({len(consolidated_notes)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Consolidated Notes] Groq also failed: {str(groq_error)[:100]}")
+            # Fallback: just return the combined notes
+            consolidated_notes = combined_notes
     
     return {
         "group": group,

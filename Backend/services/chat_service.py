@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any
 from bson import ObjectId
 from utils.db import get_chat_collection, get_user_collection
 from utils.timezone import get_current_time
-from utils.llm import groq_chat_completion, chat_completion_with_fallback
+from utils.llm import groq_chat_completion, gemini_chat_completion
 from prompts import STUDY_CHAT_SYSTEM_PROMPT, TEMPORARY_CHAT_PROMPT
 
 def generate_title(message: str) -> str:
@@ -77,30 +77,59 @@ async def generate_reply(chat_id: Optional[str], message: str, email: str) -> tu
     messages += context_messages
     messages.append({"role": "user", "content": message})
     
-    # Call LLM with automatic fallback (Groq -> Gemini)
+    # Call LLM: Gemini first, fallback to Groq
+    # Extract system instruction
+    system_instruction = None
+    user_messages = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system_instruction = msg["content"]
+        else:
+            user_messages.append(msg)
+    
+    reply = None
+    provider_used = None
+    
+    # Try Gemini first
     try:
-        # Extract system instruction
-        system_instruction = None
-        user_messages = []
-        for msg in messages:
-            if msg["role"] == "system":
-                system_instruction = msg["content"]
-            else:
-                user_messages.append(msg)
-        
-        reply, provider_used = chat_completion_with_fallback(
+        print("[Study Chat] Calling Gemini...")
+        reply = gemini_chat_completion(
             messages=user_messages,
             system_instruction=system_instruction,
             temperature=0.7,
-            max_tokens=4000,  # Increased to allow complete responses without truncation
-            prefer_gemini=False  # Prefer Groq (faster)
+            max_tokens=4000
         )
+        provider_used = "gemini"
+        print(f"[Study Chat] Gemini succeeded ({len(reply)} chars)")
+        
+    except Exception as gemini_error:
+        print(f"[Study Chat] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Study Chat] Falling back to Groq...")
+            # For Groq, add system instruction as first message
+            groq_messages = []
+            if system_instruction:
+                groq_messages.append({"role": "system", "content": system_instruction})
+            groq_messages.extend(user_messages)
+            
+            reply = groq_chat_completion(
+                messages=groq_messages,
+                temperature=0.7,
+                max_tokens=4000
+            )
+            provider_used = "groq"
+            print(f"[Study Chat] Groq succeeded ({len(reply)} chars)")
+            
+        except Exception as groq_error:
+            print(f"[Study Chat] Groq also failed: {str(groq_error)[:100]}")
+            reply = "I'm temporarily unable to respond. Please try again in a moment."
+            provider_used = "none"
+    
+    if provider_used and provider_used != "none":
         print(f"[Study Chat] Response generated using: {provider_used}")
         print(f"[Study Chat] Response length: {len(reply) if reply else 0} characters")
-        
-    except Exception as e:
-        print(f"[Study Chat] All providers failed: {str(e)}")
-        reply = "I'm temporarily unable to respond. Please try again in a moment."
     
     # Prepare new messages
     current_time = get_current_time()
@@ -210,28 +239,48 @@ async def generate_temporary_reply(
     messages += recent_history
     messages.append({"role": "user", "content": message})
     
-    # Call LLM with automatic fallback (Groq -> Gemini)
+    # Call LLM: Gemini first, fallback to Groq
+    # Extract system instruction
+    system_instruction = None
+    user_messages = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system_instruction = msg["content"]
+        else:
+            user_messages.append(msg)
+    
+    # Try Gemini first
     try:
-        # Extract system instruction
-        system_instruction = None
-        user_messages = []
-        for msg in messages:
-            if msg["role"] == "system":
-                system_instruction = msg["content"]
-            else:
-                user_messages.append(msg)
-        
-        reply, provider_used = chat_completion_with_fallback(
+        print("[Temporary Chat] Calling Gemini...")
+        reply = gemini_chat_completion(
             messages=user_messages,
             system_instruction=system_instruction,
             temperature=0.7,
-            max_tokens=4000,  # Increased to allow complete responses without truncation
-            prefer_gemini=False  # Prefer Groq (faster)
+            max_tokens=4000
         )
-        print(f"[Temporary Chat] Response generated using: {provider_used}")
-        print(f"[Temporary Chat] Response length: {len(reply) if reply else 0} characters")
+        print(f"[Temporary Chat] Gemini succeeded ({len(reply)} chars)")
         return reply
         
-    except Exception as e:
-        print(f"[Temporary Chat] All providers failed: {str(e)}")
-        return "I'm temporarily unable to respond. Please try again in a moment."
+    except Exception as gemini_error:
+        print(f"[Temporary Chat] Gemini failed: {str(gemini_error)[:100]}")
+        
+        # Fallback to Groq
+        try:
+            print("[Temporary Chat] Falling back to Groq...")
+            # For Groq, add system instruction as first message
+            groq_messages = []
+            if system_instruction:
+                groq_messages.append({"role": "system", "content": system_instruction})
+            groq_messages.extend(user_messages)
+            
+            reply = groq_chat_completion(
+                messages=groq_messages,
+                temperature=0.7,
+                max_tokens=4000
+            )
+            print(f"[Temporary Chat] Groq succeeded ({len(reply)} chars)")
+            return reply
+            
+        except Exception as groq_error:
+            print(f"[Temporary Chat] Groq also failed: {str(groq_error)[:100]}")
+            return "I'm temporarily unable to respond. Please try again in a moment."

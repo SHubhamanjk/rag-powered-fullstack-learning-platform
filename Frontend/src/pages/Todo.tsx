@@ -241,7 +241,8 @@ const TodoPage = () => {
     text: string,
     setText: (value: string) => void,
     setIsRewriting: (value: boolean) => void,
-    context: 'todo' | 'message' = 'todo'
+    context: 'todo' | 'message' = 'todo',
+    additionalContext?: string
   ) => {
     if (!text.trim()) {
       toast({
@@ -256,7 +257,8 @@ const TodoPage = () => {
     try {
       const response = await utilityService.rewriteText({
         text,
-        context
+        context,
+        additional_context: additionalContext
       });
 
       if (response.improvement_applied) {
@@ -761,7 +763,13 @@ const TodoPage = () => {
                       />
                       <Button
                         type="button"
-                        onClick={() => rewriteText(newTask, setNewTask, setIsRewritingNewTask, 'todo')}
+                        onClick={() => rewriteText(
+                          newTask, 
+                          setNewTask, 
+                          setIsRewritingNewTask, 
+                          'todo',
+                          `Task Title Context`
+                        )}
                         disabled={isRewritingNewTask || !newTask.trim()}
                         size="icon"
                         variant="ghost"
@@ -843,7 +851,10 @@ const TodoPage = () => {
                         </Button>
                         <Button
                           type="button"
-                          onClick={() => rewriteText(newDescription, setNewDescription, setIsRewritingNewDesc, 'todo')}
+                          onClick={() => {
+                            const contextInfo = `Task: ${newTask || 'New Task'}`;
+                            rewriteText(newDescription, setNewDescription, setIsRewritingNewDesc, 'todo', contextInfo);
+                          }}
                           disabled={isRewritingNewDesc || !newDescription.trim() || isRecordingNewDesc || isTranscribingNewDesc}
                           size="icon"
                           variant="ghost"
