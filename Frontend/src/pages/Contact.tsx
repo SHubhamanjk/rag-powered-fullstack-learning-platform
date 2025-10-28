@@ -14,7 +14,6 @@ import {
   Send,
   ArrowRight,
   Sparkles,
-  Brain,
   Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -148,10 +147,7 @@ const Contact = () => {
               whileHover={{ scale: 1.05 }}
               onClick={() => navigate("/")}
             >
-              <div className="relative">
-                <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-primary relative z-10" />
-                <div className="absolute inset-0 blur-lg bg-primary/50 animate-pulse-slow" />
-              </div>
+              <img src="/logo.png" alt="Medha.ai Logo" className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
               <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                 Medha.ai
               </span>
@@ -413,7 +409,7 @@ const Contact = () => {
       <footer className="border-t border-border/50 py-8 sm:py-10 md:py-12 px-3 sm:px-4 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-            <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+            <img src="/logo.png" alt="Medha.ai Logo" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
             <span className="text-base sm:text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               Medha.ai
             </span>

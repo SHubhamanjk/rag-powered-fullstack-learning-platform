@@ -125,6 +125,7 @@ const TutorialWatch = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [isRewritingChat, setIsRewritingChat] = useState(false);
 
   // Mindmaps
   const [mindmaps, setMindmaps] = useState<Mindmap[]>([]);
@@ -575,9 +576,24 @@ const TutorialWatch = () => {
 
     setIsRewritingNote(true);
     try {
+      // Build context with tutorial information and existing notes
+      let contextInfo = '';
+      if (selectedTutorial) {
+        contextInfo = `Tutorial: ${selectedTutorial.title}`;
+        if (selectedTutorial.group) {
+          contextInfo += `\nGroup: ${selectedTutorial.group}`;
+        }
+        // Include recent notes as context (last 3 notes)
+        if (notes.length > 0) {
+          const recentNotes = notes.slice(-3).map(n => n.note).join('; ');
+          contextInfo += `\nRecent notes: ${recentNotes}`;
+        }
+      }
+
       const response = await utilityService.rewriteText({
         text: newNote,
-        context: 'note'
+        context: 'note',
+        additional_context: contextInfo
       });
 
       if (response.improvement_applied) {
@@ -1034,6 +1050,69 @@ const TutorialWatch = () => {
     return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   };
 
+  const rewriteChat = async () => {
+    if (!chatInput.trim()) {
+      toast({
+        title: "Nothing to Rewrite",
+        description: "Please enter some text first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRewritingChat(true);
+    try {
+      // Build context with tutorial information, chat history, and recent notes
+      let contextInfo = '';
+      if (selectedTutorial) {
+        contextInfo = `Tutorial: ${selectedTutorial.title}`;
+        if (selectedTutorial.group) {
+          contextInfo += `\nTopic/Group: ${selectedTutorial.group}`;
+        }
+        // Include recent chat messages as context (last 3 messages)
+        if (chatMessages.length > 0) {
+          const recentChats = chatMessages.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n');
+          contextInfo += `\nRecent chat:\n${recentChats}`;
+        }
+        // Include recent notes as context (last 2 notes)
+        if (notes.length > 0) {
+          const recentNotes = notes.slice(-2).map(n => n.note).join('; ');
+          contextInfo += `\nRecent notes: ${recentNotes}`;
+        }
+      }
+
+      const response = await utilityService.rewriteText({
+        text: chatInput,
+        context: 'message',
+        additional_context: contextInfo
+      });
+
+      if (response.improvement_applied) {
+        // Save original text for undo before replacing
+        saveForUndo(chatInput, 'tutorial-chat', setChatInput);
+        
+        setChatInput(response.rewritten_text);
+        toast({
+          title: "✨ Text Enhanced",
+          description: "Your message has been improved! (Press Ctrl+Z to undo)",
+        });
+      } else {
+        toast({
+          title: "Already Perfect!",
+          description: "Your message looks great as is.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Rewrite Failed",
+        description: error.message || "Could not enhance text",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRewritingChat(false);
+    }
+  };
+
   const sendChatMessage = async () => {
     if (!selectedTutorial || !chatInput.trim()) return;
 
@@ -1162,6 +1241,15 @@ const TutorialWatch = () => {
       setQuizFromTime("");
       setQuizToTime("");
       await fetchQuizzes();
+
+      // Navigate to quiz page immediately after generation
+      navigate(`/quiz/${response.quiz_id}`, {
+        state: {
+          quizData: response,
+          tutorialTitle: selectedTutorial.title,
+          isTutorialQuiz: true,
+        },
+      });
     } catch (error: any) {
       toast({
         title: "Failed to Create Practice Test",
@@ -2103,7 +2191,7 @@ const TutorialWatch = () => {
               <Button
                 onClick={isRecordingChat ? stopRecordingChat : startRecordingChat}
                 size="icon"
-                disabled={isChatLoading || isTranscribingChat}
+                disabled={isChatLoading || isTranscribingChat || isRewritingChat}
                 className={`shrink-0 ${
                   isRecordingChat
                     ? "bg-red-500 hover:bg-red-600 animate-pulse"
@@ -2118,6 +2206,22 @@ const TutorialWatch = () => {
                   <MicOff className="w-4 h-4 text-white" />
                 ) : (
                   <Mic className="w-4 h-4" />
+                )}
+              </Button>
+
+              {/* Rewrite Button */}
+              <Button
+                onClick={rewriteChat}
+                size="icon"
+                disabled={isRewritingChat || !chatInput.trim() || isChatLoading || isRecordingChat || isTranscribingChat}
+                variant="outline"
+                className="glass shrink-0"
+                title="Enhance with AI"
+              >
+                {isRewritingChat ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                ) : (
+                  <Wand2 className="w-4 h-4 text-primary" />
                 )}
               </Button>
 
@@ -2138,7 +2242,7 @@ const TutorialWatch = () => {
               <Button
                 onClick={sendChatMessage}
                 size="icon"
-                disabled={isChatLoading || !chatInput.trim() || isRecordingChat || isTranscribingChat}
+                disabled={isChatLoading || !chatInput.trim() || isRecordingChat || isTranscribingChat || isRewritingChat}
                 className="bg-gradient-to-br from-primary to-secondary shrink-0"
               >
                 {isChatLoading ? (

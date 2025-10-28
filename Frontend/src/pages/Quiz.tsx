@@ -53,15 +53,15 @@ const Quiz = () => {
   const loadQuiz = async () => {
     setIsLoading(true);
     try {
-      // Check if quiz data was passed from StudyMode
+      // Check if quiz data was passed from StudyMode or TutorialWatch
       const locationState = location.state as any;
-      if (locationState?.quizData && locationState?.isStudySession) {
+      if (locationState?.quizData && (locationState?.isStudySession || locationState?.isTutorialQuiz)) {
         // Use the quiz data from state
-        setIsStudySession(true);
+        setIsStudySession(locationState?.isStudySession || false);
         const quizData = locationState.quizData;
         setQuizDetails({
           ...quizData,
-          tutorial_title: locationState.sessionName || "Study Session Quiz",
+          tutorial_title: locationState.sessionName || locationState.tutorialTitle || "Quiz",
         });
 
         // Combine questions with type information
