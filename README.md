@@ -87,9 +87,55 @@ npm run dev
 
 ---
 
+---
+
+## 🔌 3. Run the Browser Extension (Optional)
+
+🎯 **NEW!** Use Medha.ai directly on YouTube with the browser extension!
+
+📍 Navigate to the extension directory:
+
+```bash
+cd BrowserExtension
+```
+
+⚙️ **Quick Setup (5 minutes):**
+
+1. **Configure URLs** (see `QUICK_START.md`):
+   - Update backend URL in `lib/api.js`
+   - Update frontend URL in `popup/popup.js`
+
+2. **Add Icons** to `assets/` folder:
+   - `icon16.png`, `icon48.png`, `icon128.png`
+   - Use https://www.favicon-generator.org/ for quick icons
+
+3. **Load Extension:**
+   - **Chrome/Edge:** Go to `chrome://extensions` → Enable "Developer mode" → "Load unpacked" → Select `BrowserExtension/` folder
+   - **Firefox:** Go to `about:debugging#/runtime/this-firefox` → "Load Temporary Add-on" → Select `manifest.json`
+
+4. **Test It:**
+   - Click extension icon → Login/Signup
+   - Go to any YouTube video
+   - Floating widget appears automatically!
+   - Start taking notes, chat with AI, generate quizzes 🎉
+
+📖 **Full Documentation:**
+- `QUICK_START.md` - Get running in 5 minutes
+- `SETUP.md` - Production configuration & publishing
+- `README.md` - Complete feature documentation
+
+✨ **Features:**
+- 📝 Timestamped notes while watching videos
+- 🤖 AI chat about video content
+- 📊 Auto-generate quizzes from videos
+- 🧠 Create mindmaps
+- ✨ AI-powered note organization
+
+---
+
 ### 🧠 Notes
 
-* Ensure the backend is running before starting the frontend.
+* Ensure the backend is running before starting the frontend or extension.
 * If any dependency issues occur, try upgrading:
 
 ```bash

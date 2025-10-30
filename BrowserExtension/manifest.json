@@ -1,0 +1,65 @@
+{
+  "manifest_version": 3,
+  "name": "Medha.ai - Tutorial Support",
+  "version": "1.0.1",
+  "description": "AI-powered tutorial companion: Notes, Quizzes, Mindmaps & AI Chat while watching videos",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://youtu.be/*"
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/watch*",
+        "https://www.youtube.com/live/*"
+      ],
+      "js": [
+        "content/state.js",
+        "content/utils/dom.js",
+        "content/services/youtube.js",
+        "content/ui/fab.js",
+        "content/ui/widget.js",
+        "content/features/notes.js",
+        "content/features/chat.js",
+        "content/features/quiz.js",
+        "content/features/mindmap.js",
+        "content/init.js"
+      ],
+      "css": [
+        "content/styles/variables.css",
+        "content/styles/components.css",
+        "content/styles/modals.css",
+        "content/styles/enhancements.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["https://www.youtube.com/*"]
+    }
+  ],
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}
+

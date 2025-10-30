@@ -38,33 +38,21 @@ jobs:
       working-directory: ./Backend
       run: |
         docker build . -t ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-        docker build . -t ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        docker tag ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+          ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
         docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-    - name: Deploy to Azure Container Apps
+    - name: Deploy to Azure Container Apps (reuse existing env vars)
       uses: azure/container-apps-deploy-action@v1
       with:
         containerAppName: ${{ env.CONTAINER_APP_NAME }}
         resourceGroup: ${{ env.RESOURCE_GROUP }}
         imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-        environmentVariables: |
-          MONGODB_URI=secretref:mongodb-uri
-          MONGO_URI=secretref:mongodb-uri
-          GROQ_API_KEY=secretref:groq-api-key
-          GROQ_MODEL=llama-3.3-70b-versatile
-          GEMINI_API_KEY=secretref:gemini-api-key
-          GOOGLE_API_KEY=secretref:gemini-api-key
-          GEMINI_MODEL=gemini-2.5-flash
-          JWT_SECRET_KEY=secretref:jwt-secret-key
-          JWT_ALGORITHM=HS256
-          JWT_EXPIRATION_HOURS=72
-          SMTP_FROM_EMAIL=secretref:smtp-from-email
-          SMTP_FROM_NAME=Medha.ai
-          GMAIL_APP_PASSWORD=secretref:gmail-app-password
-          HUGGINGFACE_HUB_TOKEN=secretref:huggingface-token
-          AZURE_STORAGE_CONNECTION_STRING=secretref:azure-storage-connection-string
+        # For first-time deploys, include registry credentials below; omit if app already linked to ACR
+        # registryUrl: ${{ env.AZURE_CONTAINER_REGISTRY }}
+        # registryUsername: ${{ secrets.AZURE_REGISTRY_USERNAME }}
+        # registryPassword: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
 
     - name: Logout from Azure
       run: az logout
-

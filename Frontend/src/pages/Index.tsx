@@ -1055,14 +1055,32 @@ const Index = () => {
               © 2025 Medha.ai. Empowering students with AI technology.
             </p>
             
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-muted-foreground hover:text-primary"
-              onClick={() => navigate("/contact")}
-            >
-              Contact Us
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-primary"
+                onClick={() => navigate("/privacy")}
+              >
+                Privacy Policy
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-primary"
+                onClick={() => navigate("/support")}
+              >
+                Support
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-primary"
+                onClick={() => navigate("/contact")}
+              >
+                Contact Us
+              </Button>
+            </div>
           </div>
           
           <div className="mt-8 pt-8 border-t border-border/50 text-center">
