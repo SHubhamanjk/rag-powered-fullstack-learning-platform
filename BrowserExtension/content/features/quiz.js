@@ -23,14 +23,20 @@
     finally { btn.disabled = false; btn.innerHTML = 'Generate Quiz'; }
   }
 
-  async function loadQuizzes() {
+  async function loadQuizzes(maxRetries = 0, attempt = 0) {
     if (!state.currentTutorialId) return;
     const container = document.getElementById('medha-quiz-list'); if (!container) return;
-    container.innerHTML = '<div class="medha-skeleton-loader"><div class="medha-skeleton-card"></div><div class="medha-skeleton-card"></div></div>';
+    if (attempt === 0) {
+      container.innerHTML = '<div class="medha-skeleton-loader"><div class="medha-skeleton-card"></div><div class="medha-skeleton-card"></div></div>';
+    }
     try {
       const response = await chrome.runtime.sendMessage({ action: 'getTutorialQuizzes', data: { tutorialId: state.currentTutorialId } });
       const quizzes = response.quizzes || [];
       if (quizzes.length === 0) {
+        if (attempt < maxRetries) {
+          setTimeout(() => loadQuizzes(maxRetries, attempt + 1), 2000);
+          return;
+        }
         container.innerHTML = '<div class="medha-empty-state"><div class="medha-empty-icon">📝</div><div class="medha-empty-text">No quizzes yet. Generate your first quiz!</div></div>';
       } else {
         container.innerHTML = quizzes.map(quiz => `

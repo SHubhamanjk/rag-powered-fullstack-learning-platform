@@ -11,20 +11,31 @@
     const btn = document.getElementById('medha-generate-mindmap'); btn.disabled = true; btn.innerHTML = '<span class="medha-spinner"></span> Creating...';
     try {
       const response = await chrome.runtime.sendMessage({ action: 'generateMindmap', data: { tutorialId: state.currentTutorialId } });
-      const count = (response.mindmaps || []).length; showNotification && showNotification(` ${response.message || `${count} mindmap(s) created successfully!`}`, 'success');
+      const created = response && Array.isArray(response.mindmaps) ? response.mindmaps : [];
+      const count = created.length; showNotification && showNotification(` ${response.message || `${count} mindmap(s) created successfully!`}`, 'success');
+      if (created.length > 0) {
+        try { showMindmapModal(created[0], 1); } catch (_) {}
+      }
       await loadMindmaps();
     } catch (error) { showNotification && showNotification('❌ Mindmap generation failed: ' + error.message, 'error'); }
     finally { btn.disabled = false; btn.innerHTML = '<span class="icon">🧠</span> Generate Mindmap'; }
   }
 
-  async function loadMindmaps() {
+  async function loadMindmaps(maxRetries = 0, attempt = 0) {
     if (!state.currentTutorialId) return;
     const container = document.getElementById('medha-mindmap-list'); if (!container) return;
-    container.innerHTML = '<div class="medha-skeleton-loader"><div class="medha-skeleton-card"></div><div class="medha-skeleton-card"></div></div>';
+    // Show skeleton on first attempt only
+    if (attempt === 0) {
+      container.innerHTML = '<div class="medha-skeleton-loader"><div class="medha-skeleton-card"></div><div class="medha-skeleton-card"></div></div>';
+    }
     try {
       const response = await chrome.runtime.sendMessage({ action: 'getMindmaps', data: { tutorialId: state.currentTutorialId } });
       const mindmaps = response.mindmaps || [];
       if (mindmaps.length === 0) {
+        if (attempt < maxRetries) {
+          setTimeout(() => loadMindmaps(maxRetries, attempt + 1), 2000);
+          return;
+        }
         container.innerHTML = '<div class="medha-empty-state"><div class="medha-empty-icon">🧠</div><div class="medha-empty-text">No mindmaps yet. Generate your first mindmap!</div></div>';
       } else {
         container.innerHTML = mindmaps.map((mindmap, index) => `
