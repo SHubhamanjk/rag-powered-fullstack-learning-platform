@@ -8,10 +8,100 @@
 
   function checkPageAndStart() {
     const videoId = yt.getYouTubeVideoId();
-    if (!videoId) return;
+    if (!videoId) {
+      // Video ID not in URL yet, wait for navigation
+      setupURLChangeDetection();
+      waitForVideoPlayer();
+      return;
+    }
     state.lastVideoUrl = yt.getNormalizedYouTubeUrl() || window.location.href;
-    checkExistingSession();
+    waitForVideoPlayerAndStart();
     setupURLChangeDetection();
+  }
+
+  function waitForVideoPlayerAndStart() {
+    // Check if video player already exists
+    const videoPlayer = yt.getVideoPlayer();
+    if (videoPlayer) {
+      // Video player is ready, proceed immediately
+      checkExistingSession();
+      return;
+    }
+
+    // Video player not ready yet, wait for it
+    let checkAttempts = 0;
+    const maxAttempts = 50; // Check for up to 5 seconds (50 * 100ms)
+    let checkInterval = null;
+    
+    // Cleanup function
+    const clearObserver = () => {
+      if (window._medhaVideoObserver) {
+        window._medhaVideoObserver.disconnect();
+        window._medhaVideoObserver = null;
+      }
+    };
+
+    // Function to cleanup and start session
+    const cleanupAndStart = () => {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+        checkInterval = null;
+      }
+      if (window._medhaVideoObserver) {
+        window._medhaVideoObserver.disconnect();
+        window._medhaVideoObserver = null;
+      }
+      checkExistingSession();
+    };
+
+    // Also use MutationObserver as a more efficient fallback
+    const observer = new MutationObserver((mutations) => {
+      const videoPlayer = yt.getVideoPlayer();
+      if (videoPlayer) {
+        cleanupAndStart();
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Store observer reference for cleanup
+    window._medhaVideoObserver = observer;
+    
+    checkInterval = setInterval(() => {
+      checkAttempts++;
+      const videoPlayer = yt.getVideoPlayer();
+      
+      if (videoPlayer) {
+        cleanupAndStart();
+      } else if (checkAttempts >= maxAttempts) {
+        cleanupAndStart();
+      }
+    }, 100);
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', clearObserver);
+  }
+
+  function waitForVideoPlayer() {
+    // This is for when we're not on a watch page yet
+    // Wait for navigation to a video page
+    let lastDetectedVideoId = null;
+    const observer = new MutationObserver(() => {
+      const videoId = yt.getYouTubeVideoId();
+      if (videoId && videoId !== lastDetectedVideoId) {
+        lastDetectedVideoId = videoId;
+        state.lastVideoUrl = yt.getNormalizedYouTubeUrl() || window.location.href;
+        waitForVideoPlayerAndStart();
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
   }
 
   function setupURLChangeDetection() {
@@ -47,7 +137,8 @@
 
   async function reinitializeForNewVideo() {
     cleanupSession();
-    setTimeout(() => { checkExistingSession(); }, 500);
+    // Wait for video player to be ready before showing FAB
+    waitForVideoPlayerAndStart();
   }
 
   async function checkExistingSession() {

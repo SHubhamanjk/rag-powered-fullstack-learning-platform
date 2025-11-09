@@ -28,7 +28,9 @@ import {
   Lock,
   Coffee,
   Headphones,
-  X
+  X,
+  ExternalLink,
+  Puzzle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -358,7 +360,7 @@ const Index = () => {
               </span>
             </motion.h1>
             
-            <motion.p 
+            <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
@@ -367,7 +369,33 @@ const Index = () => {
               Transform your learning experience with AI-powered doubt solving, 
               <span className="text-primary font-semibold"> interactive tutorials</span>, and 
               <span className="text-secondary font-semibold"> personalized study sessions</span>
-            </motion.p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.5 }}
+              className="mx-auto mb-10 flex max-w-3xl flex-col items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 text-center shadow-lg shadow-primary/10 sm:flex-row sm:justify-between sm:text-left"
+            >
+              <div className="flex items-center justify-center gap-2 text-sm sm:text-base font-semibold text-primary">
+                <Puzzle className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span>Medha.ai Browser Extension is live on Microsoft Edge!</span>
+              </div>
+              <Button
+                asChild
+                size="sm"
+                className="w-full sm:w-auto bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+              >
+                <a
+                  href="https://microsoftedge.microsoft.com/addons/detail/medhaai-tutorial-suppo/jmhcckcdckmhhfiloichlhbaineimbam"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Add to Microsoft Edge
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+            </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
