@@ -8,15 +8,21 @@
 
   function checkPageAndStart() {
     const videoId = yt.getYouTubeVideoId();
+    setupURLChangeDetection();
+    setupYouTubeNavigationEvents();
+    setupWatchFlexyObserver();
+
     if (!videoId) {
-      // Video ID not in URL yet, wait for navigation
-      setupURLChangeDetection();
+      // Video ID not in URL yet, wait for navigation and video element creation
       waitForVideoPlayer();
       return;
     }
+
     state.lastVideoUrl = yt.getNormalizedYouTubeUrl() || window.location.href;
+
+    // Show FAB optimistically while we wait for the player (behaves like previous implementation)
+    checkExistingSession();
     waitForVideoPlayerAndStart();
-    setupURLChangeDetection();
   }
 
   function waitForVideoPlayerAndStart() {
@@ -94,7 +100,12 @@
       if (videoId && videoId !== lastDetectedVideoId) {
         lastDetectedVideoId = videoId;
         state.lastVideoUrl = yt.getNormalizedYouTubeUrl() || window.location.href;
+
+        // Kick off initialization immediately and then disconnect observer to avoid duplicate triggers
+        checkExistingSession();
         waitForVideoPlayerAndStart();
+
+        observer.disconnect();
       }
     });
 
@@ -133,12 +144,141 @@
     state.currentTutorialId = null; state.currentTutorialGroup = 'general'; state.isMinimized = false; state.notes = []; state.chatMessages = [];
     state.isInitializing = false; state.isRecording = false; state.isTranscribing = false; state.mediaRecorder = null; state.audioChunks = [];
     state.wasPlayingBeforePause = false; state.typingTimer = null; state.isUserTyping = false;
+
+    if (window._medhaVideoObserver) {
+      window._medhaVideoObserver.disconnect();
+      window._medhaVideoObserver = null;
+    }
   }
 
   async function reinitializeForNewVideo() {
     cleanupSession();
-    // Wait for video player to be ready before showing FAB
+    // Show FAB optimistically while we wait for the player to appear
+    checkExistingSession();
     waitForVideoPlayerAndStart();
+  }
+
+  function setupYouTubeNavigationEvents() {
+    if (window._medhaYouTubeNavEventsAttached) return;
+
+    const handleNavigation = () => {
+      // Use a short delay to allow YouTube's internal state to update
+      setTimeout(() => {
+        handleYouTubeNavigation();
+      }, 50);
+    };
+
+    ['yt-navigate-start', 'yt-navigate-finish', 'yt-page-data-updated'].forEach((eventName) => {
+      document.addEventListener(eventName, handleNavigation, true);
+    });
+
+    window._medhaYouTubeNavEventsAttached = true;
+  }
+
+  function handleYouTubeNavigation() {
+    const currentUrl = window.location.href;
+    const videoId = yt.getYouTubeVideoId();
+
+    if (!currentUrl.includes('/watch') || !videoId) {
+      // Not on a video page anymore – clean up any UI
+      cleanupSession();
+      state.lastVideoUrl = null;
+      return;
+    }
+
+    const normalized = yt.getNormalizedYouTubeUrl();
+    if (!normalized) return;
+
+    if (normalized !== state.lastVideoUrl) {
+      state.lastVideoUrl = normalized;
+      reinitializeForNewVideo();
+    }
+  }
+
+  function setupWatchFlexyObserver() {
+    if (window._medhaWatchObserver && window._medhaWatchElement && document.contains(window._medhaWatchElement)) {
+      return;
+    }
+
+    const attachObserverToWatchElement = () => {
+      const watchElement = document.querySelector('ytd-watch-flexy');
+      if (!watchElement) return false;
+
+      window._medhaWatchElement = watchElement;
+
+      const handleVideoAttributeChange = () => {
+        const videoIdAttr = watchElement.getAttribute('video-id');
+        const videoId = videoIdAttr || yt.getYouTubeVideoId();
+        if (!videoId) return;
+
+        const normalized = `https://www.youtube.com/watch?v=${videoId}`;
+        if (normalized !== state.lastVideoUrl) {
+          state.lastVideoUrl = normalized;
+          reinitializeForNewVideo();
+        }
+      };
+
+      // Run once immediately when attaching
+      handleVideoAttributeChange();
+
+      const watchObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'video-id') {
+            handleVideoAttributeChange();
+            break;
+          }
+        }
+      });
+
+      watchObserver.observe(watchElement, {
+        attributes: true,
+        attributeFilter: ['video-id']
+      });
+
+      window._medhaWatchObserver = watchObserver;
+      window._medhaWatchElement = watchElement;
+
+      if (!window._medhaWatchPresenceObserver) {
+        const presenceObserver = new MutationObserver(() => {
+          if (!window._medhaWatchElement || document.contains(window._medhaWatchElement)) {
+            return;
+          }
+
+          if (window._medhaWatchObserver) {
+            window._medhaWatchObserver.disconnect();
+            window._medhaWatchObserver = null;
+          }
+
+          window._medhaWatchElement = null;
+          setupWatchFlexyObserver();
+        });
+
+        presenceObserver.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+
+        window._medhaWatchPresenceObserver = presenceObserver;
+      }
+
+      return true;
+    };
+
+    if (!attachObserverToWatchElement()) {
+      const finderObserver = new MutationObserver(() => {
+        if (attachObserverToWatchElement()) {
+          finderObserver.disconnect();
+          window._medhaWatchFinder = null;
+        }
+      });
+
+      finderObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+
+      window._medhaWatchFinder = finderObserver;
+    }
   }
 
   async function checkExistingSession() {
@@ -199,6 +339,26 @@
   }
 
   ns.init = { checkExistingSession, createSessionFromFAB };
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (!message || typeof message !== 'object') return;
+
+    if (message.action === 'showFab') {
+      const normalizedUrl = yt.getNormalizedYouTubeUrl();
+      if (normalizedUrl) {
+        state.lastVideoUrl = normalizedUrl;
+      }
+
+      setupWatchFlexyObserver();
+
+      checkExistingSession()
+        .then(() => sendResponse && sendResponse({ success: true }))
+        .catch(() => sendResponse && sendResponse({ success: false }));
+
+      return true; // Keep channel open for async response
+    }
+  });
+ 
   checkPageAndStart();
 })();
 

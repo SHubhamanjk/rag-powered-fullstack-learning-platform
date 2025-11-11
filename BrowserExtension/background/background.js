@@ -106,6 +106,11 @@ async function handleMessage(request) {
       // ========================================================================
       
       case 'openPopup':
+        if (data && data.showFab && sender?.tab?.id) {
+          chrome.tabs.sendMessage(sender.tab.id, { action: 'showFab' });
+          return { success: true };
+        }
+
         // Open extension popup by opening extension's popup.html in new tab
         chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html') });
         return { success: true };
@@ -126,6 +131,12 @@ chrome.runtime.onInstalled.addListener((details) => {
   } else if (details.reason === 'update') {
     // Extension updated
   }
+});
+
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab?.id) return;
+
+  chrome.tabs.sendMessage(tab.id, { action: 'showFab' });
 });
 
 // Audio transcription handler with fallback
