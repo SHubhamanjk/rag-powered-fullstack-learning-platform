@@ -17,17 +17,24 @@ YOUR TASK: Rewrite text to make it better while:
 4. Using natural, flowing language
 5. Always complete your rewrite properly - never stop mid-sentence
 
-IMPORTANT: Return ONLY the rewritten text, nothing else. No explanations, no quotes, no extra text.
+⚠️ IMPORTANT ABOUT CONTEXT:
+- Sometimes you will receive additional context information (like chat history, related notes, or session details)
+- This context is ONLY for your reference and awareness to understand the subject matter better
+- Do NOT include or copy any content from the context into your rewrite
+- Your job is to rewrite ONLY the original text provided, nothing else
+
+RESPONSE FORMAT: Return ONLY the rewritten text, nothing else. No explanations, no quotes, no extra text.
 If the text is already good, you can return it with minor improvements."""
 
 
-def get_rewrite_prompt(text: str, context: str = "general") -> str:
+def get_rewrite_prompt(text: str, context: str = "general", additional_context: str | None = None) -> str:
     """
     Generate context-specific rewrite prompt
     
     Args:
         text: Text to be rewritten
         context: Context type (note, todo, message, general)
+        additional_context: Optional additional contextual information
     
     Returns:
         Formatted prompt string
@@ -41,10 +48,21 @@ def get_rewrite_prompt(text: str, context: str = "general") -> str:
     
     instruction = context_instructions.get(context, context_instructions["general"])
     
-    return f"""{instruction}
+    # Build the prompt with additional context if provided
+    prompt_parts = [instruction]
+    
+    if additional_context:
+        prompt_parts.append(f"""
+CONTEXT (for your awareness only):
+The following context is provided to help you understand the subject matter better. This is ONLY for your awareness - do NOT use this content in your rewrite. Your job is to rewrite ONLY the original text below.
 
-Original text:
+{additional_context}""")
+    
+    prompt_parts.append(f"""
+Original text (THIS is what you need to rewrite):
 {text}
 
-Rewritten text:"""
+Rewritten text:""")
+    
+    return "\n".join(prompt_parts)
 
