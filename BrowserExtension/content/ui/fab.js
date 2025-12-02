@@ -32,7 +32,11 @@
         if (isResizing) {
           isResizing = false; fab.classList.remove('resizing'); document.body.style.cursor = '';
           const customSize = fab.offsetWidth; fab.dataset.size = 'custom';
-          chrome.storage.local.set({ fabSize: 'custom', fabCustomSize: customSize });
+          try {
+            chrome.storage.local.set({ fabSize: 'custom', fabCustomSize: customSize });
+          } catch (err) {
+            console.warn('Extension context invalidated, cannot save FAB size:', err);
+          }
           showNotification && showNotification(`FAB size set to ${customSize}px`, 'success');
           document.removeEventListener('mousemove', onMouseMove);
           document.removeEventListener('mouseup', onMouseUp);
@@ -70,7 +74,11 @@
       if (isDragging) {
         isDragging = false;
         if (hasMoved) {
-          chrome.storage.local.set({ fabPosition: { top: element.style.top, left: element.style.left, right: element.style.right, bottom: element.style.bottom } });
+          try {
+            chrome.storage.local.set({ fabPosition: { top: element.style.top, left: element.style.left, right: element.style.right, bottom: element.style.bottom } });
+          } catch (err) {
+            console.warn('Extension context invalidated, cannot save FAB position:', err);
+          }
           setTimeout(() => { element.classList.remove('dragging'); hasMoved = false; }, 100);
         } else { hasMoved = false; }
       }
@@ -96,7 +104,11 @@
       option.addEventListener('click', () => {
         const size = option.dataset.size; if (size === 'custom') { menu.remove(); return; }
         fab.dataset.size = size; fab.style.width = ''; fab.style.height = ''; applyFabSize(fab, size);
-        chrome.storage.local.set({ fabSize: size });
+        try {
+          chrome.storage.local.set({ fabSize: size });
+        } catch (err) {
+          console.warn('Extension context invalidated, cannot save FAB size:', err);
+        }
         menu.remove(); showNotification && showNotification(`FAB size set to ${size}`, 'success');
       });
     });
@@ -111,19 +123,33 @@
     if (document.getElementById('medha-fab')) return;
     const fab = document.createElement('div');
     fab.id = 'medha-fab'; fab.className = 'medha-fab';
-    chrome.storage.local.get(['fabPosition', 'fabSize', 'fabCustomSize'], (result) => {
-      if (result.fabPosition) {
-        fab.style.bottom = result.fabPosition.bottom;
-        fab.style.right = result.fabPosition.right;
-        fab.style.top = result.fabPosition.top || 'auto';
-        fab.style.left = result.fabPosition.left || 'auto';
-      }
-      if (result.fabSize) {
-        fab.dataset.size = result.fabSize;
-        if (result.fabSize === 'custom' && result.fabCustomSize) { fab.style.width = result.fabCustomSize + 'px'; fab.style.height = result.fabCustomSize + 'px'; }
-        else { applyFabSize(fab, result.fabSize); }
-      }
-    });
+    
+    // Wrap chrome API calls in try-catch to handle extension context invalidation
+    try {
+      chrome.storage.local.get(['fabPosition', 'fabSize', 'fabCustomSize'], (result) => {
+        try {
+          if (result && result.fabPosition) {
+            fab.style.bottom = result.fabPosition.bottom || '';
+            fab.style.right = result.fabPosition.right || '';
+            fab.style.top = result.fabPosition.top || 'auto';
+            fab.style.left = result.fabPosition.left || 'auto';
+          }
+          if (result && result.fabSize) {
+            fab.dataset.size = result.fabSize;
+            if (result.fabSize === 'custom' && result.fabCustomSize) { 
+              fab.style.width = result.fabCustomSize + 'px'; 
+              fab.style.height = result.fabCustomSize + 'px'; 
+            } else { 
+              applyFabSize(fab, result.fabSize); 
+            }
+          }
+        } catch (err) {
+          console.warn('Error applying FAB settings:', err);
+        }
+      });
+    } catch (err) {
+      console.warn('Extension context invalidated, using defaults:', err);
+    }
     const logoUrl = chrome.runtime.getURL('assets/logo.png');
     fab.innerHTML = `
       <div class="medha-fab-icon"><img src="${logoUrl}" alt="Medha.ai" style="width: 100%; height: 100%; object-fit: contain;" /></div>

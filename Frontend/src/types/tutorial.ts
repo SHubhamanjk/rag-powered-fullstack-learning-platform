@@ -14,7 +14,8 @@ export interface Tutorial {
 
 export interface Note {
   note_id: string;
-  note: string;
+  note?: string;
+  image?: string; // Base64 encoded image
   timestamp: string;
   datetime: string;
 }
@@ -48,7 +49,8 @@ export interface ConsolidatedNotesResponse {
 
 export interface AddNoteRequest {
   tutorial_id: string;
-  note: string;
+  note?: string;
+  image?: string; // Base64 encoded image
   timestamp: string;
 }
 
@@ -65,7 +67,8 @@ export interface GetNotesResponse {
 }
 
 export interface UpdateNoteRequest {
-  updated_text: string;
+  updated_text?: string;
+  updated_image?: string; // Base64 encoded image
 }
 
 export interface UpdateNoteResponse {

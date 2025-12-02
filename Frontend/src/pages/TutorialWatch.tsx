@@ -29,6 +29,8 @@ import {
   Wand2,
   Mic,
   MicOff,
+  Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +39,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -115,11 +118,15 @@ const TutorialWatch = () => {
   // Notes
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState("");
+  const [newNoteImage, setNewNoteImage] = useState<string | null>(null);
   const [currentVideoTime, setCurrentVideoTime] = useState(0);
   const [isRewritingNote, setIsRewritingNote] = useState(false);
   const [videoDuration, setVideoDuration] = useState(0);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteText, setEditNoteText] = useState("");
+  
+  // Image viewer modal
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   // Chat
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -622,11 +629,141 @@ const TutorialWatch = () => {
     }
   };
 
+  // Process image file (validate and convert to base64)
+  const processImageFile = useCallback((file: File) => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please upload an image smaller than 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setNewNoteImage(base64String);
+      toast({
+        title: "Image Added",
+        description: "Image ready to be added to note",
+      });
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Upload Failed",
+        description: "Failed to read image file",
+        variant: "destructive",
+      });
+    };
+    reader.readAsDataURL(file);
+  }, [toast]);
+
+  // Handle image upload from file input
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processImageFile(file);
+    // Reset input
+    e.target.value = '';
+  };
+
+  // Handle paste from clipboard
+  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    // Only handle if user is focused on note input area or textarea
+    const target = e.target as HTMLElement;
+    const isInNoteArea = target.closest('[data-note-input-area]') || 
+                         target === noteTextareaRef.current ||
+                         document.activeElement === noteTextareaRef.current;
+    
+    if (!isInNoteArea) return;
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          processImageFile(file);
+        }
+        break;
+      }
+    }
+  }, [processImageFile]);
+
+  // Handle drag and drop
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        processImageFile(file);
+      } else {
+        toast({
+          title: "Invalid File",
+          description: "Please drop an image file",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [processImageFile, toast]);
+
+  // Add paste event listener
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [handlePaste]);
+
+  const removeImage = () => {
+    setNewNoteImage(null);
+  };
+
   const addNote = async () => {
-    if (!selectedTutorial || !newNote.trim()) {
+    if (!selectedTutorial || (!newNote.trim() && !newNoteImage)) {
       toast({
         title: "Error",
-        description: "Please enter a note",
+        description: "Please enter a note or upload an image",
         variant: "destructive",
       });
       return;
@@ -638,7 +775,8 @@ const TutorialWatch = () => {
     try {
       await tutorialService.addNote({
         tutorial_id: selectedTutorial.tutorial_id,
-        note: newNote,
+        note: newNote.trim() || undefined,
+        image: newNoteImage || undefined,
         timestamp: timestamp,
       });
 
@@ -648,6 +786,7 @@ const TutorialWatch = () => {
       });
 
       setNewNote("");
+      setNewNoteImage(null);
       // Reset textarea height
       if (noteTextareaRef.current) {
         noteTextareaRef.current.style.height = '60px';
@@ -1971,12 +2110,27 @@ const TutorialWatch = () => {
               <div className="space-y-4 flex-shrink-0">
               {/* Add Note Form */}
               <Card className="glass border-border">
-                <CardContent className="p-2 sm:p-3 space-y-2 ">
+                <CardContent 
+                  className="p-2 sm:p-3 space-y-2"
+                  data-note-input-area
+                  onDragEnter={handleDragEnter}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
                   <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground mb-1">
                     <Clock className="w-3 h-3" />
                     <span>At {formatTime(currentVideoTime)}</span>
                   </div>
-                  <div className="relative">
+                  <div className={`relative ${isDragging ? 'ring-2 ring-primary ring-offset-2 rounded-md' : ''}`}>
+                    {isDragging && (
+                      <div className="absolute inset-0 bg-primary/10 rounded-md flex items-center justify-center z-10 pointer-events-none">
+                        <div className="text-center">
+                          <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
+                          <p className="text-sm font-medium text-primary">Drop image here</p>
+                        </div>
+                      </div>
+                    )}
                     <Textarea
                       ref={noteTextareaRef}
                       placeholder={
@@ -1991,8 +2145,35 @@ const TutorialWatch = () => {
                       className="resize-none pr-20 min-h-[60px] max-h-[200px] overflow-y-auto scrollbar-hide transition-all duration-150"
                       style={{ height: '60px' }}
                       disabled={isRecordingNote || isTranscribingNote}
+                      onPaste={(e) => {
+                        // Let the global paste handler deal with images
+                        // This is just for text paste
+                      }}
                     />
                     <div className="absolute top-2 right-2 flex gap-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        id="image-upload"
+                        disabled={isRecordingNote || isTranscribingNote}
+                      />
+                      <label htmlFor="image-upload">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 hover:bg-primary/20"
+                          title="Upload image"
+                          disabled={isRecordingNote || isTranscribingNote}
+                          asChild
+                        >
+                          <span>
+                            <ImageIcon className="w-4 h-4 text-primary" />
+                          </span>
+                        </Button>
+                      </label>
                       <Button
                         onClick={isRecordingNote ? stopRecordingNote : startRecordingNote}
                         disabled={isRewritingNote || isTranscribingNote}
@@ -2029,6 +2210,24 @@ const TutorialWatch = () => {
                       </Button>
                     </div>
                   </div>
+                  {newNoteImage && (
+                    <div className="relative">
+                      <img
+                        src={newNoteImage}
+                        alt="Uploaded note"
+                        className="w-full h-32 object-contain rounded-md border border-border"
+                      />
+                      <Button
+                        onClick={removeImage}
+                        size="icon"
+                        variant="destructive"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        title="Remove image"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
                   <Button
                     onClick={addNote}
                     disabled={isLoading || isRecordingNote || isTranscribingNote}
@@ -2108,17 +2307,19 @@ const TutorialWatch = () => {
                               {note.timestamp}
                             </Badge>
                             <div className="flex gap-1">
-                              <Button
-                                onClick={() => {
-                                  setEditingNoteId(note.note_id);
-                                  setEditNoteText(note.note);
-                                }}
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                              </Button>
+                              {note.note && (
+                                <Button
+                                  onClick={() => {
+                                    setEditingNoteId(note.note_id);
+                                    setEditNoteText(note.note || "");
+                                  }}
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </Button>
+                              )}
                               <Button
                                 onClick={() => deleteNote(note.note_id)}
                                 size="icon"
@@ -2129,7 +2330,17 @@ const TutorialWatch = () => {
                               </Button>
                             </div>
                           </div>
-                          <p className="text-sm">{note.note}</p>
+                          {note.note && <p className="text-sm mb-2">{note.note}</p>}
+                          {note.image && (
+                            <div className="mt-2">
+                              <img
+                                src={note.image}
+                                alt="Note image"
+                                className="w-full max-h-48 object-contain rounded-md border border-border cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => setViewingImage(note.image!)}
+                              />
+                            </div>
+                          )}
                         </>
                       )}
                     </CardContent>
@@ -2651,6 +2862,46 @@ const TutorialWatch = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Image Viewer Modal */}
+      <Dialog open={!!viewingImage} onOpenChange={(open) => !open && setViewingImage(null)}>
+        <DialogContent className="max-w-4xl w-full p-0 bg-transparent border-none">
+          {viewingImage && (
+            <div className="relative bg-background rounded-lg overflow-hidden">
+              <img
+                src={viewingImage}
+                alt="Full size note image"
+                className="w-full h-auto max-h-[80vh] object-contain"
+              />
+              <div className="absolute top-4 right-4 flex gap-2">
+                <Button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = viewingImage;
+                    link.download = `note-image-${Date.now()}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  size="sm"
+                  variant="secondary"
+                  className="gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </Button>
+                <Button
+                  onClick={() => setViewingImage(null)}
+                  size="icon"
+                  variant="secondary"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

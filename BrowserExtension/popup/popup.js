@@ -170,6 +170,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.create({ url: dashboardUrl });
   });
 
+  // Fuel the Mission button
+  document.getElementById('fuel-mission-btn').addEventListener('click', () => {
+    showFuelMissionModal();
+  });
+
   // Forgot Password Link
   document.getElementById('forgot-password-link').addEventListener('click', (e) => {
     e.preventDefault();
@@ -394,6 +399,81 @@ document.addEventListener('DOMContentLoaded', async () => {
       button.disabled = false;
       button.textContent = button.dataset.originalText || button.textContent;
     }
+  }
+
+  // Fuel the Mission Modal for Popup
+  function showFuelMissionModal() {
+    const UPI_ID = '8002007238-2@axl'; 
+    
+    function getQRCodeImage() {
+      return chrome.runtime.getURL('assets/qr.jpg');
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'popup-fuel-modal';
+    modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.9); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px;';
+    
+    const qrCodeUrl = getQRCodeImage();
+    
+    modal.innerHTML = `
+      <div style="background: var(--popup-bg-primary); border: 1px solid var(--popup-border); border-radius: 12px; width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto; position: relative;">
+        <div style="padding: 20px; border-bottom: 1px solid var(--popup-border); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 20px; color: var(--popup-primary);">⚡ Fuel the Mission</h2>
+          <button id="close-popup-fuel" style="background: transparent; border: none; color: var(--popup-text-secondary); font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">×</button>
+        </div>
+        <div style="padding: 24px;">
+          <div style="margin-bottom: 24px;">
+            <p style="font-size: 16px; font-weight: 600; color: var(--popup-text-primary); margin: 0 0 12px 0; text-align: center;">Keep the Learning Engine Running</p>
+            <p style="font-size: 13px; color: var(--popup-text-secondary); line-height: 1.6; margin: 0 0 16px 0;">
+              Medha.ai is built with passion to make learning accessible and powerful. Your support helps us maintain infrastructure, enhance AI capabilities, add new features, and keep everything free for learners worldwide.
+            </p>
+            <ul style="list-style: none; padding: 0; margin: 0 0 16px 0;">
+              <li style="font-size: 12px; color: var(--popup-text-primary); line-height: 1.8; padding: 6px 0 6px 20px; position: relative;">Maintain and improve server infrastructure</li>
+              <li style="font-size: 12px; color: var(--popup-text-primary); line-height: 1.8; padding: 6px 0 6px 20px; position: relative;">Enhance AI capabilities and response quality</li>
+              <li style="font-size: 12px; color: var(--popup-text-primary); line-height: 1.8; padding: 6px 0 6px 20px; position: relative;">Add new features and keep everything free</li>
+              <li style="font-size: 12px; color: var(--popup-text-primary); line-height: 1.8; padding: 6px 0 6px 20px; position: relative;">Scale to serve more learners worldwide</li>
+            </ul>
+            <p style="font-size: 12px; color: var(--popup-text-secondary); line-height: 1.6; margin: 16px 0 0 0; font-style: italic; text-align: center;">
+              Every contribution fuels our mission to democratize quality education. Thank you! 🙏
+            </p>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px; background: var(--popup-bg-secondary); border-radius: 8px; border: 1px solid var(--popup-border);">
+            <div>
+              <p style="font-size: 12px; color: var(--popup-text-secondary); margin: 0 0 12px 0; font-weight: 500; text-align: center;">Scan to contribute via UPI</p>
+              <img src="${qrCodeUrl}" alt="UPI QR Code" style="width: 200px; height: 200px; border: none; border-radius: 0; padding: 0; background: white; display: block; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; object-fit: contain;" />
+            </div>
+            <div style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <p style="font-size: 11px; color: var(--popup-text-secondary); margin: 0;">Or send directly to:</p>
+              <div style="display: flex; gap: 8px; width: 100%; max-width: 280px;">
+                <input type="text" id="popup-upi-id" value="${UPI_ID}" readonly style="flex: 1; padding: 10px; background: var(--popup-bg-tertiary); border: 1px solid var(--popup-border); border-radius: 6px; color: var(--popup-text-primary); font-size: 13px; font-family: monospace; text-align: center;" />
+                <button id="popup-copy-upi" style="padding: 10px 16px; background: var(--popup-primary); border: none; border-radius: 6px; color: white; font-size: 14px; cursor: pointer;">📋</button>
+              </div>
+            </div>
+          </div>
+          <p style="font-size: 11px; color: var(--popup-text-secondary); margin: 16px 0 0 0; text-align: center;">💝 Your support means the world to us!</p>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.getElementById('close-popup-fuel').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    
+    document.getElementById('popup-copy-upi').addEventListener('click', () => {
+      const upiInput = document.getElementById('popup-upi-id');
+      upiInput.select();
+      upiInput.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        const copyBtn = document.getElementById('popup-copy-upi');
+        const original = copyBtn.textContent;
+        copyBtn.textContent = '✓';
+        setTimeout(() => { copyBtn.textContent = original; }, 2000);
+      } catch (err) {
+        upiInput.select();
+      }
+    });
   }
 });
 

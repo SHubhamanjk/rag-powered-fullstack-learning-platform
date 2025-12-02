@@ -134,10 +134,15 @@ class MedhaAPI {
     });
   }
 
-  async addNote(tutorialId, note, timestamp) {
+  async addNote(tutorialId, note, timestamp, image) {
     return this.request('/tutorial-support/notes/add', {
       method: 'POST',
-      body: JSON.stringify({ tutorial_id: tutorialId, note, timestamp }),
+      body: JSON.stringify({ 
+        tutorial_id: tutorialId, 
+        note: note || undefined,
+        image: image || undefined,
+        timestamp 
+      }),
     });
   }
 

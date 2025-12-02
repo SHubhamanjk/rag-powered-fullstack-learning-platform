@@ -135,6 +135,27 @@
 .medha-note-edit-btn:hover,.medha-note-delete-btn:hover { background: var(--medha-bg-hover); color: var(--medha-text-primary); }
 .medha-note-delete-btn:hover { color: var(--medha-error); }
 .medha-note-text { color: var(--medha-text-primary); line-height: 1.6; font-size: 13px; word-wrap: break-word; }
+.medha-note-image { margin-top: 8px; position: relative; }
+.medha-note-image img { cursor: pointer; transition: opacity 0.2s; }
+.medha-note-image img:hover { opacity: 0.9; }
+
+/* Image Preview */
+.medha-image-preview { position: relative; margin-top: 8px; }
+.medha-remove-image-btn { position: absolute; top: 4px; right: 4px; background: var(--medha-error); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; transition: var(--medha-transition); }
+.medha-remove-image-btn:hover { background: var(--medha-error-dark); transform: scale(1.1); }
+
+/* Drag and Drop */
+[data-note-input-area].medha-dragging { border: 2px dashed var(--medha-primary); background: var(--medha-primary-light); opacity: 0.1; border-radius: var(--medha-radius-sm); }
+
+/* Image Modal */
+.medha-image-modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); z-index: 1000000; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.3s ease-out; }
+.medha-image-modal-content { background: var(--medha-bg-primary); border-radius: var(--medha-radius-md); max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+.medha-image-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--medha-border); }
+.medha-image-modal-header h3 { margin: 0; color: var(--medha-text-primary); font-size: 18px; }
+.medha-close-btn { background: transparent; border: none; color: var(--medha-text-secondary); cursor: pointer; font-size: 28px; line-height: 1; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: var(--medha-transition); }
+.medha-close-btn:hover { background: var(--medha-bg-hover); color: var(--medha-text-primary); }
+.medha-image-modal-body { padding: 20px; overflow: auto; display: flex; align-items: center; justify-content: center; }
+.medha-image-modal-footer { padding: 16px 20px; border-top: 1px solid var(--medha-border); display: flex; justify-content: flex-end; gap: 12px; }
 
 /* Chat */
 .medha-chat-container { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
@@ -145,6 +166,27 @@
 .medha-message-user,.medha-message-ai { padding: 12px 14px; border-radius: var(--medha-radius-sm); max-width: 85%; line-height: 1.6; font-size: 13px; }
 .medha-message-user { background: var(--medha-primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
 .medha-message-ai { background: var(--medha-bg-secondary); border: 1px solid var(--medha-border); color: var(--medha-text-primary); align-self: flex-start; border-bottom-left-radius: 4px; }
+
+/* Markdown styles for AI chat messages */
+.medha-markdown-content { word-wrap: break-word; overflow-wrap: break-word; }
+.medha-markdown-content p { margin: 0.5em 0; line-height: 1.6; }
+.medha-markdown-content p:first-child { margin-top: 0; }
+.medha-markdown-content p:last-child { margin-bottom: 0; }
+.medha-markdown-content h1, .medha-markdown-content .medha-chat-h1 { font-size: 1.3em; font-weight: 700; margin: 0.8em 0 0.5em 0; color: var(--medha-text-primary); line-height: 1.4; }
+.medha-markdown-content h2, .medha-markdown-content .medha-chat-h2 { font-size: 1.15em; font-weight: 600; margin: 0.7em 0 0.4em 0; color: var(--medha-text-primary); line-height: 1.4; }
+.medha-markdown-content h3, .medha-markdown-content .medha-chat-h3 { font-size: 1.05em; font-weight: 600; margin: 0.6em 0 0.3em 0; color: var(--medha-text-primary); line-height: 1.4; }
+.medha-markdown-content ul, .medha-markdown-content .medha-chat-list { margin: 0.5em 0; padding-left: 1.5em; list-style-type: disc; }
+.medha-markdown-content li, .medha-markdown-content .medha-chat-list-item { margin: 0.3em 0; line-height: 1.5; }
+.medha-markdown-content ul ul { list-style-type: circle; margin: 0.2em 0; }
+.medha-markdown-content ul ul ul { list-style-type: square; }
+.medha-markdown-content strong { font-weight: 600; color: var(--medha-text-primary); }
+.medha-markdown-content em { font-style: italic; }
+.medha-markdown-content code, .medha-markdown-content .medha-code-inline { background: rgba(0, 0, 0, 0.2); padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; word-break: break-word; }
+.medha-markdown-content pre { background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: 6px; overflow-x: auto; margin: 0.8em 0; }
+.medha-markdown-content pre code, .medha-markdown-content .medha-code-block { background: transparent; padding: 0; border-radius: 0; font-size: 0.85em; line-height: 1.5; display: block; white-space: pre-wrap; word-wrap: break-word; }
+.medha-markdown-content a, .medha-markdown-content .medha-link { color: var(--medha-primary); text-decoration: underline; transition: var(--medha-transition); }
+.medha-markdown-content a:hover, .medha-markdown-content .medha-link:hover { color: var(--medha-primary-light); }
+.medha-markdown-content br { line-height: 1.5; }
 .medha-message-label { font-size: 11px; color: var(--medha-text-muted); font-weight: 500; padding: 0 4px; display: flex; align-items: center; gap: 6px; }
 .medha-message-icon { font-size: 14px; display: inline-flex; align-items: center; justify-content: center; }
 .medha-chat-input-container { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--medha-border); flex-shrink: 0; }

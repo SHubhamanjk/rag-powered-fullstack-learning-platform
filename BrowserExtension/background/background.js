@@ -37,7 +37,7 @@ async function handleMessage(request) {
         return await api.updateTutorial(data.tutorialId, data);
       
       case 'addNote':
-        return await api.addNote(data.tutorialId, data.note, data.timestamp);
+        return await api.addNote(data.tutorialId, data.note, data.timestamp, data.image);
       
       case 'getNotes':
         return await api.getNotes(data.tutorialId);

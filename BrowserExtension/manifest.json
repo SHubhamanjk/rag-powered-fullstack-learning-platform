@@ -1,7 +1,7 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 4,
   "name": "Medha.ai - Tutorial Support",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "AI-powered tutorial companion: Notes, Quizzes, Mindmaps & AI Chat while watching videos",
   "permissions": [
     "storage",
@@ -39,6 +39,7 @@
         "content/features/chat.js",
         "content/features/quiz.js",
         "content/features/mindmap.js",
+        "content/features/fuel-mission.js",
         "content/init.js"
       ],
       "css": [

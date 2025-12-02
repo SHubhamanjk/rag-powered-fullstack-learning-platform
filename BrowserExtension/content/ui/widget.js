@@ -53,12 +53,82 @@
 
   function attachEventListeners() {
     document.getElementById('medha-minimize').addEventListener('click', toggleMinimize);
+    
+    // Fuel the Mission button
+    document.getElementById('medha-fuel-mission').addEventListener('click', () => {
+      if (ns.features && ns.features.showFuelMissionModal) {
+        ns.features.showFuelMissionModal();
+      }
+    });
     loadAndSetupGroupSelector();
     document.querySelectorAll('.medha-tab').forEach(tab => { tab.addEventListener('click', () => switchTab(tab.dataset.tab)); });
     document.getElementById('medha-add-note').addEventListener('click', () => ns.features && ns.features.addNote && ns.features.addNote());
     document.getElementById('medha-voice-btn').addEventListener('click', () => ns.features && ns.features.toggleVoiceRecording && ns.features.toggleVoiceRecording());
     document.getElementById('medha-rewrite-btn').addEventListener('click', () => ns.features && ns.features.rewriteNote && ns.features.rewriteNote());
 
+    // Image upload handlers
+    const imageUpload = document.getElementById('medha-image-upload');
+    const imageBtn = document.getElementById('medha-image-btn');
+    
+    if (imageUpload) {
+      imageUpload.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file && ns.features && ns.features.processImageFile) {
+          ns.features.processImageFile(file);
+        }
+        e.target.value = '';
+      });
+    }
+    
+    // Handle button click to trigger file input
+    if (imageBtn && imageUpload) {
+      imageBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        imageUpload.click();
+      });
+    }
+
+    const removeImageBtn = document.getElementById('medha-remove-image');
+    if (removeImageBtn) {
+      removeImageBtn.addEventListener('click', () => {
+        if (ns.features && ns.features.removeImage) {
+          ns.features.removeImage();
+        }
+      });
+    }
+
+    // Drag and drop handlers
+    const noteInputArea = document.querySelector('[data-note-input-area]');
+    if (noteInputArea) {
+      noteInputArea.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer.types.includes('Files')) {
+          noteInputArea.classList.add('medha-dragging');
+        }
+      });
+      noteInputArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      noteInputArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        noteInputArea.classList.remove('medha-dragging');
+      });
+      noteInputArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        noteInputArea.classList.remove('medha-dragging');
+        const files = e.dataTransfer.files;
+        if (files.length > 0 && files[0].type.startsWith('image/') && ns.features && ns.features.processImageFile) {
+          ns.features.processImageFile(files[0]);
+        }
+      });
+    }
+
+    // Paste handler
     const noteInput = document.getElementById('medha-note-input');
     noteInput.addEventListener('focus', () => { ns.youtube.pauseVideo(); state.isUserTyping = true; });
     noteInput.addEventListener('input', () => {
@@ -71,6 +141,21 @@
       setTimeout(() => { if (!state.isUserTyping && !state.isRecording) { ns.youtube.resumeVideo(); } }, 500);
     });
     noteInput.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key === 'Enter') { ns.features && ns.features.addNote && ns.features.addNote(); } });
+    noteInput.addEventListener('paste', (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file && ns.features && ns.features.processImageFile) {
+            ns.features.processImageFile(file);
+          }
+          break;
+        }
+      }
+    });
 
     document.getElementById('medha-send-chat').addEventListener('click', () => ns.features && ns.features.sendChatMessage && ns.features.sendChatMessage());
     const chatInput = document.getElementById('medha-chat-input');
@@ -157,7 +242,10 @@
             </div>
           </div>
         </div>
-        <div class="medha-header-actions"><button id="medha-minimize" class="medha-header-btn" title="Minimize"><span class="icon">−</span></button></div>
+        <div class="medha-header-actions">
+          <button id="medha-fuel-mission" class="medha-header-btn" title="Fuel the Mission"><span class="icon">⚡</span></button>
+          <button id="medha-minimize" class="medha-header-btn" title="Minimize"><span class="icon">−</span></button>
+        </div>
       </div>
       <div class="medha-body">
         <div class="medha-tabs">
@@ -169,12 +257,18 @@
         <div id="tab-notes" class="medha-tab-content active">
           <div class="medha-note-input-card">
             <div class="medha-time-display"><span class="time-icon">⏱️</span><span>At <span id="current-time" class="time-value">0:00</span></span></div>
-            <div class="medha-input-wrapper">
+            <div class="medha-input-wrapper" data-note-input-area>
               <textarea id="medha-note-input" class="medha-textarea-modern" placeholder="What's important here? Jot it down...." rows="3"></textarea>
               <div class="medha-input-actions">
+                <input type="file" id="medha-image-upload" accept="image/*" style="display: none;" />
+                <button type="button" id="medha-image-btn" class="medha-icon-action-btn" title="Upload Image"><span class="icon">🖼️</span></button>
                 <button id="medha-voice-btn" class="medha-icon-action-btn" title="Voice Input"><span class="icon">🎤</span></button>
                 <button id="medha-rewrite-btn" class="medha-icon-action-btn" title="Enhance with AI"><span class="icon">✨</span></button>
               </div>
+            </div>
+            <div id="medha-image-preview" class="medha-image-preview" style="display: none;">
+              <img id="medha-preview-img" src="" alt="Preview" style="max-width: 100%; max-height: 150px; border-radius: 8px; margin-top: 8px;" />
+              <button id="medha-remove-image" class="medha-remove-image-btn" title="Remove">×</button>
             </div>
             <button id="medha-add-note" class="medha-btn-modern medha-btn-primary">Add Note</button>
           </div>
