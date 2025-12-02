@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 from typing import List, Optional, Union
 from datetime import datetime
 
@@ -38,8 +38,16 @@ class CreateTutorialResponse(BaseModel):
 # Add Note
 class AddNoteRequest(BaseModel):
     tutorial_id: str
-    note: str
+    note: Optional[str] = None
+    image: Optional[str] = None  # Base64 encoded image
     timestamp: str  # Video timestamp like "10:25"
+    
+    @model_validator(mode='after')
+    def validate_note_or_image(self):
+        """Validate that at least one of note or image is provided"""
+        if not self.note and not self.image:
+            raise ValueError("At least one of 'note' or 'image' must be provided")
+        return self
     
     model_config = {
         "json_schema_extra": {
@@ -47,6 +55,11 @@ class AddNoteRequest(BaseModel):
                 {
                     "tutorial_id": "507f1f77bcf86cd799439011",
                     "note": "Important: Variables are declared using let or const",
+                    "timestamp": "10:25"
+                },
+                {
+                    "tutorial_id": "507f1f77bcf86cd799439011",
+                    "image": "data:image/png;base64,iVBORw0KGgoAAAANS...",
                     "timestamp": "10:25"
                 }
             ]
@@ -71,7 +84,8 @@ class AddNoteResponse(BaseModel):
 # Get Notes
 class NoteSchema(BaseModel):
     note_id: str
-    note: str
+    note: Optional[str] = None
+    image: Optional[str] = None  # Base64 encoded image
     timestamp: str
     datetime: datetime
 
@@ -103,13 +117,24 @@ class GetNotesResponse(BaseModel):
 
 # Update Note
 class UpdateNoteRequest(BaseModel):
-    updated_text: str
+    updated_text: Optional[str] = None
+    updated_image: Optional[str] = None  # Base64 encoded image
+    
+    @model_validator(mode='after')
+    def validate_update_fields(self):
+        """Validate that at least one of updated_text or updated_image is provided"""
+        if not self.updated_text and not self.updated_image:
+            raise ValueError("At least one of 'updated_text' or 'updated_image' must be provided")
+        return self
     
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
                     "updated_text": "Variables in JavaScript are declared using let, const, or var"
+                },
+                {
+                    "updated_image": "data:image/png;base64,iVBORw0KGgoAAAANS..."
                 }
             ]
         }
@@ -574,6 +599,7 @@ class QuizSummarySchema(BaseModel):
     is_evaluated: bool
     score: Optional[float] = None
     percentage: Optional[float] = None
+    evaluation_report: Optional[dict] = None  # Full evaluation report if quiz was evaluated
     created_at: datetime
 
 class TutorialQuizzesResponse(BaseModel):
@@ -598,6 +624,21 @@ class TutorialQuizzesResponse(BaseModel):
                             "is_evaluated": True,
                             "score": 38.5,
                             "percentage": 55.0,
+                            "evaluation_report": {
+                                "quiz_id": "quiz_abc123",
+                                "tutorial_id": "507f1f77bcf86cd799439011",
+                                "total_score": 38.5,
+                                "max_score": 70,
+                                "percentage": 55.0,
+                                "mcq_score": 15.0,
+                                "descriptive_score": 23.5,
+                                "results": [],
+                                "overall_feedback": "Good effort! You showed understanding of basic concepts.",
+                                "strengths": ["Clear understanding of basics", "Good problem-solving approach"],
+                                "areas_for_improvement": ["Advanced concepts need work", "Practice more examples"],
+                                "study_suggestions": ["Review chapter 3", "Practice coding exercises"],
+                                "evaluated_at": "2025-01-19T11:00:00"
+                            },
                             "created_at": "2025-01-19T10:00:00"
                         }
                     ]

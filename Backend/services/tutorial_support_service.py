@@ -87,9 +87,13 @@ async def create_tutorial_session(email: str, tutorial_link: str, group: str = "
         "message": "Tutorial session created successfully"
     }
 
-async def add_note(tutorial_id: str, email: str, note: str, timestamp: str) -> Dict[str, Any]:
-    """Add a note to a tutorial"""
+async def add_note(tutorial_id: str, email: str, note: Optional[str] = None, image: Optional[str] = None, timestamp: str = "") -> Dict[str, Any]:
+    """Add a note to a tutorial. At least one of note or image must be provided."""
     collection = get_tutorial_support_collection()
+    
+    # Validate that at least one of note or image is provided
+    if not note and not image:
+        raise ValueError("At least one of 'note' or 'image' must be provided")
     
     # Find tutorial
     tutorial = collection.find_one({"tutorial_id": tutorial_id, "email": email})
@@ -100,10 +104,17 @@ async def add_note(tutorial_id: str, email: str, note: str, timestamp: str) -> D
     note_id = f"note_{uuid.uuid4().hex[:12]}"
     new_note = {
         "note_id": note_id,
-        "note": note,
         "timestamp": timestamp,
         "datetime": get_current_time().isoformat()
     }
+    
+    # Add note text if provided
+    if note:
+        new_note["note"] = note
+    
+    # Add image if provided
+    if image:
+        new_note["image"] = image
     
     # Add note to array
     collection.update_one(
@@ -144,7 +155,7 @@ async def get_notes(tutorial_id: str) -> Dict[str, Any]:
     
     # Sort notes by timestamp
     notes = tutorial.get("notes", [])
-    sorted_notes = sorted(notes, key=lambda x: parse_timestamp(x["timestamp"]))
+    sorted_notes = sorted(notes, key=lambda x: parse_timestamp(x.get("timestamp", "0:00")))
     
     return {
         "tutorial_id": tutorial["tutorial_id"],
@@ -153,23 +164,37 @@ async def get_notes(tutorial_id: str) -> Dict[str, Any]:
         "notes": sorted_notes
     }
 
-async def update_note(note_id: str, updated_text: str) -> Dict[str, Any]:
-    """Update a specific note"""
+async def update_note(note_id: str, updated_text: Optional[str] = None, updated_image: Optional[str] = None) -> Dict[str, Any]:
+    """Update a specific note. At least one of updated_text or updated_image must be provided."""
     collection = get_tutorial_support_collection()
+    
+    # Validate that at least one of updated_text or updated_image is provided
+    if not updated_text and not updated_image:
+        raise ValueError("At least one of 'updated_text' or 'updated_image' must be provided")
     
     # Find tutorial containing this note
     tutorial = collection.find_one({"notes.note_id": note_id})
     if not tutorial:
         raise ValueError("Note not found")
     
+    # Build update fields
+    update_fields = {
+        "updated_at": get_current_time().isoformat()
+    }
+    
+    # Update note text if provided
+    if updated_text is not None:
+        update_fields["notes.$.note"] = updated_text
+    
+    # Update image if provided
+    if updated_image is not None:
+        update_fields["notes.$.image"] = updated_image
+    
     # Update the note
     result = collection.update_one(
         {"notes.note_id": note_id},
         {
-            "$set": {
-                "notes.$.note": updated_text,
-                "updated_at": get_current_time().isoformat()
-            }
+            "$set": update_fields
         }
     )
     
@@ -222,7 +247,9 @@ async def prettify_notes(tutorial_id: str) -> Dict[str, Any]:
     notes_text = f"Tutorial: {tutorial['title']}\n\n"
     notes_text += "Raw Notes:\n"
     for note in sorted_notes:
-        notes_text += f"- {note['note']}\n"
+        note_text = note.get('note', '')
+        if note_text:  # Only include notes with text content
+            notes_text += f"- {note_text}\n"
     
     # Call LLM
     user_prompt = (
@@ -292,7 +319,9 @@ async def generate_detailed_notes(tutorial_id: str) -> Dict[str, Any]:
     notes_text += f"Tutorial Link: {tutorial['tutorial_link']}\n\n"
     notes_text += "Raw Notes:\n"
     for note in sorted_notes:
-        notes_text += f"- {note['note']}\n"
+        note_text = note.get('note', '')
+        if note_text:  # Only include notes with text content
+            notes_text += f"- {note_text}\n"
     
     # Call LLM
     user_prompt = (
@@ -409,10 +438,12 @@ async def tutorial_ai_chat(tutorial_id: str, question: str, current_timestamp: O
     # Add notes as context
     notes = tutorial.get("notes", [])
     if notes:
-        sorted_notes = sorted(notes, key=lambda x: parse_timestamp(x["timestamp"]))
+        sorted_notes = sorted(notes, key=lambda x: parse_timestamp(x.get("timestamp", "0:00")))
         context_parts.append("\nNotes from the tutorial:")
         for note in sorted_notes:
-            context_parts.append(f"- {note['note']}")
+            note_text = note.get('note', '')
+            if note_text:  # Only include notes with text content
+                context_parts.append(f"- {note_text}")
     
     # Add recent chat history (last 10 exchanges for context)
     chat_history = tutorial.get("ai_chat", [])
@@ -1164,7 +1195,7 @@ async def get_quiz_details(quiz_id: str) -> Dict[str, Any]:
 
 @cache_response(ttl_seconds=300)  # Cache for 5 minutes
 async def get_tutorial_quizzes(tutorial_id: str) -> Dict[str, Any]:
-    """Get all quizzes for a tutorial"""
+    """Get all quizzes for a tutorial with full evaluation reports"""
     collection = get_tutorial_support_collection()
     
     tutorial = collection.find_one({"tutorial_id": tutorial_id})
@@ -1173,11 +1204,12 @@ async def get_tutorial_quizzes(tutorial_id: str) -> Dict[str, Any]:
     
     quizzes = tutorial.get("quizzes", [])
     
-    # Build quiz summaries
+    # Build quiz summaries with full evaluation reports
     quiz_summaries = []
     for quiz in quizzes:
         eval_report = quiz.get("evaluation_report")
-        quiz_summaries.append({
+        
+        quiz_data = {
             "quiz_id": quiz["quiz_id"],
             "tutorial_id": tutorial_id,
             "tutorial_title": tutorial["title"],
@@ -1188,7 +1220,13 @@ async def get_tutorial_quizzes(tutorial_id: str) -> Dict[str, Any]:
             "score": eval_report["total_score"] if eval_report else None,
             "percentage": eval_report["percentage"] if eval_report else None,
             "created_at": quiz["created_at"]
-        })
+        }
+        
+        # Include full evaluation report if available
+        if eval_report:
+            quiz_data["evaluation_report"] = eval_report
+        
+        quiz_summaries.append(quiz_data)
     
     # Sort by created_at descending
     quiz_summaries.sort(key=lambda x: x["created_at"], reverse=True)
@@ -1606,8 +1644,9 @@ async def generate_consolidated_notes(email: str, group: str) -> Dict[str, Any]:
             
             for note in sorted_notes:
                 timestamp = note.get("timestamp", "N/A")
-                content = note.get("content", "")
-                all_notes_content.append(f"**[{timestamp}]** {content}\n\n")
+                note_text = note.get("note", "")
+                if note_text:  # Only add if note text exists
+                    all_notes_content.append(f"**[{timestamp}]** {note_text}\n\n")
             
             all_notes_content.append("---\n\n")
     

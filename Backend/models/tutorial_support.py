@@ -4,7 +4,8 @@ from datetime import datetime
 
 class Note(BaseModel):
     note_id: str
-    note: str
+    note: Optional[str] = None
+    image: Optional[str] = None  # Base64 encoded image
     timestamp: str  # Video timestamp like "10:25"
     datetime: datetime  # When note was created
 

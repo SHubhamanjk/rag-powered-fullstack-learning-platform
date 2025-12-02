@@ -77,13 +77,14 @@ async def add_note_endpoint(
     """
     Add a note to a tutorial at a specific timestamp.
     Requires JWT authentication - uses authenticated user's email.
-    Requires tutorial_id, note content, and video timestamp.
+    Requires tutorial_id, timestamp, and at least one of: note (text) or image (base64).
+    Image should be provided in base64 format (e.g., "data:image/png;base64,...").
     """
     try:
-        result = await add_note(req.tutorial_id, current_user, req.note, req.timestamp)
+        result = await add_note(req.tutorial_id, current_user, req.note, req.image, req.timestamp)
         return AddNoteResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
@@ -112,13 +113,14 @@ async def update_note_endpoint(
 ):
     """
     Update a specific note by note_id.
-    Provide the updated text in the request body.
+    Provide at least one of: updated_text or updated_image (base64) in the request body.
+    Image should be provided in base64 format (e.g., "data:image/png;base64,...").
     """
     try:
-        result = await update_note(note_id, req.updated_text)
+        result = await update_note(note_id, req.updated_text, req.updated_image)
         return UpdateNoteResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
@@ -257,40 +259,8 @@ async def evaluate_quiz_endpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
-@router.get("/quiz/{quiz_id}", response_model=QuizDetailsResponse)
-async def get_quiz_details_endpoint(
-    quiz_id: str,
-    current_user: str = Depends(get_current_user)
-):
-    """
-    Get complete quiz details including questions, options, and evaluation report.
-    Returns MCQ questions, descriptive questions, and evaluation results if quiz was evaluated.
-    """
-    try:
-        result = await get_quiz_details(quiz_id)
-        return QuizDetailsResponse(**result)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
-@router.get("/quiz/tutorial/{tutorial_id}", response_model=TutorialQuizzesResponse)
-async def get_tutorial_quizzes_endpoint(
-    tutorial_id: str,
-    current_user: str = Depends(get_current_user)
-):
-    """
-    Get all quizzes for a specific tutorial.
-    Returns list of quizzes with summaries including scores and timestamps.
-    Sorted by most recently created first.
-    """
-    try:
-        result = await get_tutorial_quizzes(tutorial_id)
-        return TutorialQuizzesResponse(**result)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+# IMPORTANT: Specific routes MUST come BEFORE parameterized routes like {quiz_id}
+# Otherwise FastAPI will match "my-quizzes" or "tutorial" as a quiz_id parameter
 
 @router.get("/quiz/my-quizzes", response_model=UserQuizzesResponse)
 async def get_user_quizzes_endpoint(
@@ -305,6 +275,48 @@ async def get_user_quizzes_endpoint(
     try:
         result = await get_user_quizzes(current_user)
         return UserQuizzesResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.get("/quiz/tutorial/{tutorial_id}", response_model=TutorialQuizzesResponse)
+async def get_tutorial_quizzes_endpoint(
+    tutorial_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Get all quizzes for a specific tutorial.
+    Returns list of quizzes with full details including:
+    - Quiz metadata (timestamps, total questions)
+    - Evaluation status and scores
+    - Complete evaluation report (if quiz was evaluated) with:
+      * Overall feedback and suggestions
+      * Strengths and areas for improvement
+      * Detailed results for each question
+    
+    Sorted by most recently created first.
+    """
+    try:
+        result = await get_tutorial_quizzes(tutorial_id)
+        return TutorialQuizzesResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.get("/quiz/{quiz_id}", response_model=QuizDetailsResponse)
+async def get_quiz_details_endpoint(
+    quiz_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Get complete quiz details including questions, options, and evaluation report.
+    Returns MCQ questions, descriptive questions, and evaluation results if quiz was evaluated.
+    """
+    try:
+        result = await get_quiz_details(quiz_id)
+        return QuizDetailsResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
