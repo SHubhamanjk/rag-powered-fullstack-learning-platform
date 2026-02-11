@@ -195,8 +195,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ```bash
 cd Frontend
 npm install
-echo VITE_API_URL=http://localhost:8000 > .env
-# or create .env with: VITE_API_URL=http://localhost:8000
+echo VITE_API_BASE_URL=http://localhost:8000 > .env
+# or create .env with: VITE_API_BASE_URL=http://localhost:8000
 npm run dev
 ```
 
@@ -232,7 +232,7 @@ cd BrowserExtension
 
 | Variable | Purpose |
 |----------|---------|
-| `VITE_API_URL` | Backend base URL (e.g. `http://localhost:8000`) |
+| `VITE_API_BASE_URL` | Backend base URL (e.g. `http://localhost:8000`) |
 
 ---
 
@@ -247,6 +247,16 @@ cd BrowserExtension
 | See frontend structure | [Frontend/README.md](Frontend/README.md) |
 | Configure env | [Environment Variables](#environment-variables) |
 
+---
+
+## Project Owner
+
+- **Name**: Shubham Kumar Gupta
+- **Role**: AI/ML Engineer & Full-Stack Developer
+- **Email**: [shubham07kumargupta@gmail.com](mailto:shubham07kumargupta@gmail.com)
+- **Mobile**: `+91 8002007238`
+- **LinkedIn**: [linkedin.com/in/shubhamiitpatna](https://linkedin.com/in/shubhamiitpatna)
+- **GitHub**: [github.com/SHubhamanjk](https://github.com/SHubhamanjk)
 ---
 
 *Medha.ai — full-stack AI for learning: React + FastAPI + LLMs + RAG + voice + analytics.*

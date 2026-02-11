@@ -182,7 +182,14 @@ This project is proprietary and confidential.
 
 ## 📧 Contact
 
-For any queries or support, please contact the development team.
+### Project Owner
+
+- **Name**: Shubham Kumar Gupta
+- **Role**: AI/ML Engineer & Full-Stack Developer
+- **Email**: [shubham07kumargupta@gmail.com](mailto:shubham07kumargupta@gmail.com)
+- **Mobile**: `+91 8002007238`
+- **LinkedIn**: [linkedin.com/in/shubhamiitpatna](https://linkedin.com/in/shubhamiitpatna)
+- **GitHub**: [github.com/SHubhamanjk](https://github.com/SHubhamanjk)
 
 ---
 

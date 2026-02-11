@@ -259,5 +259,15 @@ GET /dashboard/  # Get comprehensive user analytics for authenticated user
 - Email OTP requires Gmail account with app password configured
 - MongoDB collections are auto-created on first use
 
+---
+
+### Project Owner
+
+- **Name**: Shubham Kumar Gupta
+- **Role**: AI/ML Engineer & Full-Stack Developer
+- **Email**: [shubham07kumargupta@gmail.com](mailto:shubham07kumargupta@gmail.com)
+- **Mobile**: `+91 8002007238`
+- **LinkedIn**: [linkedin.com/in/shubhamiitpatna](https://linkedin.com/in/shubhamiitpatna)
+- **GitHub**: [github.com/SHubhamanjk](https://github.com/SHubhamanjk)
 
 
