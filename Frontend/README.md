@@ -2,11 +2,22 @@
 
 An intelligent learning companion that transforms education through AI-powered features including doubt solving, interactive tutorials, smart study sessions, and personalized learning paths.
 
+## 📸 Screenshots
+
+| Landing Page | Study Companion | Tutorial Companion |
+|---|---|---|
+| ![Landing Page](../images/landingpage.png) | ![Study Companion](../images/study%20companion.png) | ![Tutorial Companion](../images/tutorial%20companion.png) |
+
+| Notes | Smart Quizzes | Smart To-Dos |
+|---|---|---|
+| ![Notes](../images/notes.png) | ![Smart Quizzes](../images/smart%20quizzes.png) | ![Smart To-Dos](../images/smarttodos.png) |
+
 ## 🚀 Features
 
 - **AI Doubt Assistant**: Get instant answers with ChatGPT-like AI assistant with text and voice input support
 - **Interactive Tutorial Watch**: Watch videos with AI-powered notes, auto-pause on questions, quiz generation, and mind maps
 - **Smart Study Mode**: Create study sessions, upload materials, chat with AI about your content, and generate quizzes
+- **Memory Vault**: Save notes and upload files, then search and chat with your personal knowledge base (RAG + download links)
 - **Smart To-Do**: Manage tasks with AI suggestions and intelligent organization
 - **Learning Analytics**: Track progress, quiz performance, and study patterns with beautiful visualizations
 - **Voice I/O**: Speak your questions and hear responses with text-to-speech support
@@ -46,7 +57,8 @@ npm install
 3. **Set up environment variables**
 Create a `.env` file in the Frontend directory:
 ```env
-VITE_API_URL=http://localhost:8000
+VITE_API_BASE_URL=http://localhost:8000
+VITE_GA_MEASUREMENT_ID=G-EXAMPLE123
 ```
 
 4. **Start the development server**
@@ -128,6 +140,13 @@ Frontend/
 - Generate custom quizzes
 - Create visual mind maps
 
+### Memory Vault
+- **Two modes**: `/add` (save notes / upload files) and `/search` (query your vault)
+- Upload files with optional description and get them indexed for semantic search
+- Save quick notes/snippets that become searchable
+- Voice notes: record audio → transcribe → save as a searchable note
+- Ask questions in natural language; when you request a file, the UI can show a **download button** (time-limited link)
+
 ### Quiz System
 - MCQ and descriptive questions
 - AI-powered evaluation
@@ -136,7 +155,7 @@ Frontend/
 
 ## 🔌 API Integration
 
-The frontend communicates with the FastAPI backend at the configured `VITE_API_URL`. All authenticated requests include JWT tokens in the Authorization header.
+The frontend communicates with the FastAPI backend at the configured `VITE_API_BASE_URL`. All authenticated requests include JWT tokens in the Authorization header.
 
 ## 🎯 Available Scripts
 
