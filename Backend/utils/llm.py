@@ -43,7 +43,7 @@ def get_gemini_client() -> genai.Client:
 
 # Model configurations
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
 # Timeout configuration
 GROQ_TIMEOUT = 120  # seconds
