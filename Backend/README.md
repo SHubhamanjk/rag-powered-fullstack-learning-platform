@@ -1,12 +1,21 @@
 ## Medha.ai Backend - Smart Learning Assistant
 
-An AI-powered educational platform that helps students study smarter with personalized chat assistance, study session management with RAG, tutorial support, quizzes, mindmaps, and task management.
+An AI-powered educational platform that helps students study smarter with personalized chat assistance, study session management with RAG, tutorial support, quizzes, mindmaps,memory vault and task management.
+
+### Screenshots (Endpoints)
+Screenshots used in this README live in `../images/`.
+
+| User, Task & Chat Management | Tutorial Support & Study Session Management | Memory Vault & Analytics |
+|---|---|---|
+| ![User, Task & Chat Management Endpoints](../images/b1.png) | ![Tutorial Support & Study Session Management Endpoints](../images/b2.png) | ![Memory Vault & Analytics Endpoints](../images/b3.png) |
+
+
 
 ### Tech Stack
 - Backend: FastAPI (Python 3.11), Pydantic v2, MongoDB (Atlas/local)
-- LLMs: Groq API (gemma2-9b-it for all AI features)
+- LLMs: Groq API (gemma2-9b-it for all AI features),Gemini
 - Speech: Groq Whisper (STT), Kokoro (TTS, WAV, 24kHz)
-- RAG: FAISS + SentenceTransformers (all-MiniLM-L6-v2)
+- RAG: FAISS + SentenceTransformers(all-MiniLM-L6-v2) + Reranking + COT
 - Graphs: Graphviz (mindmap rendering)
 - DevOps: Docker, CORS, .env configuration
 
@@ -48,6 +57,18 @@ An AI-powered educational platform that helps students study smarter with person
 - AI assistant for task help with chat history
 - Contextual guidance and step-by-step planning
 
+**Memory Vault** (Personal Knowledge Base)
+- Save **notes/snippets** (credentials, reminders, APIs, quick notes) with semantic indexing
+- Upload **files** and make them searchable via embeddings + FAISS
+- Supported uploads include:
+  - Documents (PDF/TXT/MD/JSON/PY/JS/HTML/CSS)
+  - Images (JPG/PNG/BMP/GIF/WEBP) with OCR text extraction
+  - Audio (WAV/MP3/FLAC/M4A/WEBM/OGG) with speech-to-text; stored as a note
+- **Unified Vault Chat** with RAG: ask questions, follow up with context, optionally request a secure download link
+- **Download links** for stored files via Azure Blob **SAS URLs** (time-limited)
+- Per-user **items list** and **chat history** for continuity
+- Note: deleting an item removes metadata; Azure blobs are **not** automatically deleted
+
 **Media Processing**
 - Speech-to-Text: Groq Whisper
 - Text-to-Speech: Kokoro (WAV, 24kHz)
@@ -58,6 +79,7 @@ An AI-powered educational platform that helps students study smarter with person
 - All quizzes and mindmaps with results
 - TODO progress tracking
 - Complete activity overview
+
 
 ### Project Structure
 ```
@@ -130,8 +152,6 @@ curl -X 'GET' 'http://localhost:8000/dashboard/' \
 ```
 
 3. **Token expires after 7 days** - login again to get a new token.
-
-📚 **See** [JWT_AUTHENTICATION.md](./JWT_AUTHENTICATION.md) **for complete documentation**
 
 ### API Documentation
 Once the server is running, visit:
@@ -239,5 +259,15 @@ GET /dashboard/  # Get comprehensive user analytics for authenticated user
 - Email OTP requires Gmail account with app password configured
 - MongoDB collections are auto-created on first use
 
+---
+
+### Project Owner
+
+- **Name**: Shubham Kumar Gupta
+- **Role**: AI/ML Engineer & Full-Stack Developer
+- **Email**: [shubham07kumargupta@gmail.com](mailto:shubham07kumargupta@gmail.com)
+- **Mobile**: `+91 8002007238`
+- **LinkedIn**: [linkedin.com/in/shubhamiitpatna](https://linkedin.com/in/shubhamiitpatna)
+- **GitHub**: [github.com/SHubhamanjk](https://github.com/SHubhamanjk)
 
 
