@@ -3,7 +3,7 @@
 
 class MedhaAPI {
   constructor() {
-    this.baseURL = 'https://medha-ai-backend.victoriousstone-270d7200.eastus.azurecontainerapps.io';
+    this.baseURL = 'https://me-be-prod-849608379958.asia-south1.run.app';
   }
 
   async getAuthToken() {

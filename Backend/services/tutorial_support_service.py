@@ -999,6 +999,9 @@ Make the questions educational and comprehensive, covering both theoretical and 
             {"$set": {"quizzes": [quiz_object]}}
         )
     
+    # Invalidate cache for this tutorial
+    invalidate_cache(tutorial_id)
+    
     # Remove correct answers from response (students shouldn't see these before submission)
     mcq_for_display = []
     for mcq in mcq_questions:
@@ -1209,6 +1212,9 @@ Provide scores and feedback for each question, plus overall analysis.
             }
         }
     )
+    
+    # Invalidate cache for this tutorial
+    invalidate_cache(tutorial["tutorial_id"])
     
     return evaluation_report
 
@@ -1578,6 +1584,9 @@ Focus specifically on the concepts and details related to: {focus_area}
             }
         }
     )
+    
+    # Invalidate cache for this tutorial
+    invalidate_cache(tutorial_id)
     
     return {
         "tutorial_id": tutorial_id,

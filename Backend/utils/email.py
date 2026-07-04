@@ -13,6 +13,8 @@ async def send_email(recipient: str, subject: str, body: str, html_body: str = N
         from_email = os.getenv("SMTP_FROM_EMAIL")
         from_name = os.getenv("SMTP_FROM_NAME", "Medha.ai")
         gmail_password = os.getenv("GMAIL_APP_PASSWORD")
+        if gmail_password:
+            gmail_password = gmail_password.replace(" ", "")
         
         if not from_email or not gmail_password:
             return False
@@ -40,6 +42,7 @@ async def send_email(recipient: str, subject: str, body: str, html_body: str = N
         return True
         
     except Exception as e:
+        print(f"Error sending email: {e}")
         return False
 
 async def send_otp_email(recipient: str, otp: str) -> bool:
