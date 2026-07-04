@@ -73,7 +73,7 @@ class TutorialService {
 
   // Get all tutorials for authenticated user
   async getMyTutorials(): Promise<GetAllTutorialsResponse> {
-    return apiService.get<GetAllTutorialsResponse>("/tutorial-support/my-tutorials");
+    return apiService.get<GetAllTutorialsResponse>(`/tutorial-support/my-tutorials`);
   }
 
   // Chat with AI about the tutorial

@@ -1,7 +1,6 @@
 from .study_chat_prompts import STUDY_CHAT_SYSTEM_PROMPT, TEMPORARY_CHAT_PROMPT
 from .friend_mode_prompts import FRIEND_MODE_SYSTEM_PROMPT
 from .todo_assistant_prompts import TODO_ASSISTANT_PROMPT
-from .study_session_prompts import STUDY_SESSION_ASSISTANT_PROMPT
 from .tutorial_support_prompts import (
     PRETTIFY_NOTES_PROMPT, 
     DETAILED_NOTES_PROMPT, 
@@ -19,7 +18,6 @@ __all__ = [
     "TEMPORARY_CHAT_PROMPT",
     "FRIEND_MODE_SYSTEM_PROMPT",
     "TODO_ASSISTANT_PROMPT",
-    "STUDY_SESSION_ASSISTANT_PROMPT",
     "PRETTIFY_NOTES_PROMPT",
     "DETAILED_NOTES_PROMPT",
     "TUTORIAL_AI_COMPANION_PROMPT",

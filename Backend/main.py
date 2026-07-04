@@ -19,13 +19,13 @@ from endpoints import (
     todo,
     
     # Study Session Management
-    study_session,
+    # study_session,
     
     # Tutorial Support Management
     tutorial_support,
     
     # Memory Vault
-    memory_vault,
+    # memory_vault,
     
     # Analytics & Dashboard
     dashboard,
@@ -107,11 +107,11 @@ app.include_router(
 # ============================================================================
 # STUDY SESSION MANAGEMENT
 # ============================================================================
-app.include_router(
-    study_session.router,
-    prefix="/study-session",
-    tags=["Study Session Management"]
-)
+# app.include_router(
+#     study_session.router,
+#     prefix="/study-session",
+#     tags=["Study Session Management"]
+# )
 
 # ============================================================================
 # TUTORIAL SUPPORT MANAGEMENT
@@ -125,10 +125,10 @@ app.include_router(
 # ============================================================================
 # MEMORY VAULT
 # ============================================================================
-app.include_router(
-    memory_vault.router,
-    tags=["Memory Vault"]
-)
+# app.include_router(
+#     memory_vault.router,
+#     tags=["Memory Vault"]
+# )
 
 # ============================================================================
 # ANALYTICS & DASHBOARD

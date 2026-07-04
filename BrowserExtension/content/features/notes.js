@@ -116,14 +116,16 @@
     downloadBtn.id = 'medha-download-image';
     downloadBtn.className = 'medha-btn-modern medha-btn-primary';
     downloadBtn.textContent = '⬇ Download';
-    downloadBtn.addEventListener('click', () => {
-      const link = document.createElement('a');
-      link.href = imageSrc;
-      link.download = `note-image-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showNotification && showNotification('✅ Image downloaded!', 'success');
+    downloadBtn.addEventListener('click', async () => {
+      try {
+        await chrome.runtime.sendMessage({
+          action: 'downloadImage',
+          data: { url: imageSrc, filename: `note-image-${Date.now()}.png` }
+        });
+        showNotification && showNotification('✅ Image downloaded!', 'success');
+      } catch (error) {
+        showNotification && showNotification('❌ Download failed', 'error');
+      }
     });
     
     const header = document.createElement('div');

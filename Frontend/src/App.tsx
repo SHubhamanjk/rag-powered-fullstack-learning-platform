@@ -14,9 +14,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
 import TutorialWatch from "./pages/TutorialWatch";
 import Quiz from "./pages/Quiz";
-import StudyMode from "./pages/StudyMode";
 import Todo from "./pages/Todo";
-import MemoryVault from "./pages/MemoryVault";
 import Profile from "./pages/Profile";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
@@ -70,9 +68,7 @@ const App = () => {
               <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/tutorial" element={<ProtectedRoute><TutorialWatch /></ProtectedRoute>} />
               <Route path="/quiz/:quizId" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
-              <Route path="/study" element={<ProtectedRoute><StudyMode /></ProtectedRoute>} />
               <Route path="/todo" element={<ProtectedRoute><Todo /></ProtectedRoute>} />
-              <Route path="/memory-vault" element={<ProtectedRoute><MemoryVault /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             </Route>
             

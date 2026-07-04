@@ -1,0 +1,81 @@
+# ==============================================================================
+# GLOBAL GITIGNORE FOR FULLSTACK RAG LEARNING PLATFORM
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# ENVIRONMENT VARIABLES & SECRETS
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+Frontend/.env*
+Backend/.env*
+
+# ------------------------------------------------------------------------------
+# PYTHON / BACKEND (FastAPI)
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ------------------------------------------------------------------------------
+# NODE.JS / FRONTEND (Vite / React)
+# ------------------------------------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+*.local
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------------------------------------------
+# BROWSER EXTENSION
+# ------------------------------------------------------------------------------
+*.crx
+*.xpi
+BrowserExtension.zip
+BrowserExtension/*.zip
+
+# ------------------------------------------------------------------------------
+# IDE / SYSTEM / EDITOR FILES
+# ------------------------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.tmp
+*.bak

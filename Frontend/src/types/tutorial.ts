@@ -104,6 +104,9 @@ export interface DetailedNotesResponse {
 export interface GetAllTutorialsResponse {
   email: string;
   tutorials: Tutorial[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface TutorialChatRequest {
@@ -262,7 +265,7 @@ export interface Mindmap {
   mindmap_id: string;
   title: string;
   description: string;
-  image_b64: string;
+  image_url: string;
   created_at: string;
 }
 

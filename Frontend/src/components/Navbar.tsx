@@ -24,9 +24,7 @@ const Navbar = () => {
   const navItems = [
     { path: "/home", icon: Brain, label: "AI Assistant" },
     { path: "/tutorial", icon: BookOpen, label: "Tutorial" },
-    { path: "/study", icon: GraduationCap, label: "Study Mode" },
     { path: "/todo", icon: CheckSquare, label: "To-Do" },
-    { path: "/memory-vault", icon: FolderLock, label: "Memory Vault" },
   ];
 
   const handleLogout = () => {

@@ -86,6 +86,10 @@ const TutorialWatch = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
+  // Filter and search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState("All");
+
   // Quiz list modal
   const [showQuizListModal, setShowQuizListModal] = useState(false);
 
@@ -94,10 +98,6 @@ const TutorialWatch = () => {
   const [tutorialLink, setTutorialLink] = useState("");
   const [tutorialGroup, setTutorialGroup] = useState("");
   const [customNewGroup, setCustomNewGroup] = useState("");
-
-  // Filter and search
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedGroupFilter, setSelectedGroupFilter] = useState("All");
 
   // Edit/Delete
   const [showEditModal, setShowEditModal] = useState(false);
@@ -583,24 +583,9 @@ const TutorialWatch = () => {
 
     setIsRewritingNote(true);
     try {
-      // Build context with tutorial information and existing notes
-      let contextInfo = '';
-      if (selectedTutorial) {
-        contextInfo = `Tutorial: ${selectedTutorial.title}`;
-        if (selectedTutorial.group) {
-          contextInfo += `\nGroup: ${selectedTutorial.group}`;
-        }
-        // Include recent notes as context (last 3 notes)
-        if (notes.length > 0) {
-          const recentNotes = notes.slice(-3).map(n => n.note).join('; ');
-          contextInfo += `\nRecent notes: ${recentNotes}`;
-        }
-      }
-
       const response = await utilityService.rewriteText({
         text: newNote,
         context: 'note',
-        additional_context: contextInfo
       });
 
       if (response.improvement_applied) {
@@ -963,18 +948,27 @@ const TutorialWatch = () => {
     }
   };
 
-  const downloadMindmap = (imageData: string, filename: string) => {
-    const link = document.createElement("a");
-    link.href = imageData;
-    link.download = `${filename}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadMindmap = async (imageUrl: string, filename: string) => {
+    try {
+      const proxyUrl = `${import.meta.env.VITE_API_BASE_URL}/tutorial-support/download-image?url=${encodeURIComponent(imageUrl)}&filename=${encodeURIComponent(filename + '.png')}`;
+      const link = document.createElement("a");
+      link.href = proxyUrl;
+      link.download = `${filename}.png`; // fallback if header is ignored
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-    toast({
-      title: "Mindmap Downloaded",
-      description: "Visual map saved to your downloads.",
-    });
+      toast({
+        title: "Mindmap Downloaded",
+        description: "Visual map saved to your downloads.",
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Could not download the mindmap.",
+        variant: "destructive",
+      });
+    }
   };
 
   const exportNotesToPDF = (content: string, title: string, type: "notes" | "prettified" | "detailed" | "consolidated") => {
@@ -1201,29 +1195,9 @@ const TutorialWatch = () => {
 
     setIsRewritingChat(true);
     try {
-      // Build context with tutorial information, chat history, and recent notes
-      let contextInfo = '';
-      if (selectedTutorial) {
-        contextInfo = `Tutorial: ${selectedTutorial.title}`;
-        if (selectedTutorial.group) {
-          contextInfo += `\nTopic/Group: ${selectedTutorial.group}`;
-        }
-        // Include recent chat messages as context (last 3 messages)
-        if (chatMessages.length > 0) {
-          const recentChats = chatMessages.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n');
-          contextInfo += `\nRecent chat:\n${recentChats}`;
-        }
-        // Include recent notes as context (last 2 notes)
-        if (notes.length > 0) {
-          const recentNotes = notes.slice(-2).map(n => n.note).join('; ');
-          contextInfo += `\nRecent notes: ${recentNotes}`;
-        }
-      }
-
       const response = await utilityService.rewriteText({
         text: chatInput,
         context: 'message',
-        additional_context: contextInfo
       });
 
       if (response.improvement_applied) {
@@ -1812,75 +1786,73 @@ const TutorialWatch = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            {isFetching ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            ) : filteredTutorials.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {filteredTutorials.map((tutorial) => (
-                  <motion.div
-                    key={tutorial.tutorial_id}
-                    whileHover={{ y: -4 }}
-                    onClick={() => setSelectedTutorial(tutorial)}
-                    className="cursor-pointer relative group"
-                  >
-                    <Card className="glass border-border hover:border-primary/50 transition-all">
-                      <CardContent className="p-3 sm:p-4">
-                        <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg mb-2 sm:mb-3 flex items-center justify-center relative overflow-hidden">
-                          {/* YouTube Thumbnail */}
-                          {getYouTubeThumbnail(tutorial.tutorial_link) ? (
-                            <>
-                              <img 
-                                src={getYouTubeThumbnail(tutorial.tutorial_link)} 
-                                alt={tutorial.title}
-                                className="absolute inset-0 w-full h-full object-cover"
-                              />
-                              {/* Play overlay */}
-                              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                                <Play className="w-10 h-10 sm:w-12 sm:h-12 text-white drop-shadow-lg" />
-                              </div>
-                            </>
-                          ) : (
-                            <Play className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
-                          )}
-                          {/* Edit/Delete buttons - shown on hover */}
-                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                            <Button
-                              size="icon"
-                              variant="secondary"
-                              className="w-7 h-7"
-                              onClick={(e) => openEditModal(tutorial, e)}
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="destructive"
-                              className="w-7 h-7"
-                              onClick={(e) => deleteTutorial(tutorial.tutorial_id, e)}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
+            {filteredTutorials.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {filteredTutorials.map((tutorial) => (
+                    <motion.div
+                      key={tutorial.tutorial_id}
+                      whileHover={{ y: -4 }}
+                      onClick={() => setSelectedTutorial(tutorial)}
+                      className="cursor-pointer relative group"
+                    >
+                      <Card className="glass border-border hover:border-primary/50 transition-all">
+                        <CardContent className="p-3 sm:p-4">
+                          <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg mb-2 sm:mb-3 flex items-center justify-center relative overflow-hidden">
+                            {/* YouTube Thumbnail */}
+                            {getYouTubeThumbnail(tutorial.tutorial_link) ? (
+                              <>
+                                <img 
+                                  src={getYouTubeThumbnail(tutorial.tutorial_link)} 
+                                  alt={tutorial.title}
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                />
+                                {/* Play overlay */}
+                                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                                  <Play className="w-10 h-10 sm:w-12 sm:h-12 text-white drop-shadow-lg" />
+                                </div>
+                              </>
+                            ) : (
+                              <Play className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
+                            )}
+                            {/* Edit/Delete buttons - shown on hover */}
+                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                              <Button
+                                size="icon"
+                                variant="secondary"
+                                className="w-7 h-7"
+                                onClick={(e) => openEditModal(tutorial, e)}
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="destructive"
+                                className="w-7 h-7"
+                                onClick={(e) => deleteTutorial(tutorial.tutorial_id, e)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center justify-between mb-1 sm:mb-2">
-                          <h3 className="text-sm sm:text-base font-semibold line-clamp-2 flex-1">{tutorial.title}</h3>
-                        </div>
-                        <Badge variant="secondary" className="mb-2 text-[10px]">
-                          {tutorial.group}
-                        </Badge>
-                        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
-                          <FileText className="w-3 h-3" />
-                          <span>{tutorial.notes_count} notes</span>
-                          <Clock className="w-3 h-3 ml-2" />
-                          <span>{new Date(tutorial.updated_at).toLocaleDateString()}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
+                          <div className="flex items-center justify-between mb-1 sm:mb-2">
+                            <h3 className="text-sm sm:text-base font-semibold line-clamp-2 flex-1">{tutorial.title}</h3>
+                          </div>
+                          <Badge variant="secondary" className="mb-2 text-[10px]">
+                            {tutorial.group}
+                          </Badge>
+                          <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
+                            <FileText className="w-3 h-3" />
+                            <span>{tutorial.notes_count} notes</span>
+                            <Clock className="w-3 h-3 ml-2" />
+                            <span>{new Date(tutorial.updated_at).toLocaleDateString()}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </>
             ) : tutorials.length === 0 ? (
               <Card className="glass border-border">
                 <CardContent className="p-8 sm:p-12 text-center">
@@ -2574,7 +2546,7 @@ const TutorialWatch = () => {
                           </div>
                           <Button
                             onClick={() => downloadMindmap(
-                              mindmap.image_b64,
+                              mindmap.image_url,
                               `${selectedTutorial.title}-mindmap-${index + 1}`
                             )}
                             size="sm"
@@ -2588,7 +2560,7 @@ const TutorialWatch = () => {
                       </CardHeader>
                       <CardContent>
                         <img
-                          src={mindmap.image_b64}
+                          src={mindmap.image_url}
                           alt={mindmap.title}
                           className="w-full rounded-lg"
                         />
@@ -2875,13 +2847,23 @@ const TutorialWatch = () => {
               />
               <div className="absolute top-4 right-4 flex gap-2">
                 <Button
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = viewingImage;
-                    link.download = `note-image-${Date.now()}.png`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+                  onClick={async () => {
+                    try {
+                      const filename = `note-image-${Date.now()}.png`;
+                      const proxyUrl = `${import.meta.env.VITE_API_BASE_URL}/tutorial-support/download-image?url=${encodeURIComponent(viewingImage)}&filename=${encodeURIComponent(filename)}`;
+                      const link = document.createElement('a');
+                      link.href = proxyUrl;
+                      link.download = filename;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    } catch (error) {
+                      toast({
+                        title: "Download Failed",
+                        description: "Could not download the image.",
+                        variant: "destructive",
+                      });
+                    }
                   }}
                   size="sm"
                   variant="secondary"

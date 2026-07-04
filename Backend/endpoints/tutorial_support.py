@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException, Body, Query, Depends
+from fastapi.responses import Response
+import requests
 from utils.jwt_auth import get_current_user
 from schemas.tutorial_support import (
     CreateTutorialRequest, CreateTutorialResponse,
@@ -50,6 +52,24 @@ from services.tutorial_support_service import (
 )
 
 router = APIRouter()
+
+@router.get("/download-image")
+def download_image(url: str = Query(...), filename: str = Query("download.png")):
+    """Proxy endpoint to download cross-origin images and bypass CORS"""
+    if not url.startswith("https://storage.googleapis.com/"):
+        raise HTTPException(status_code=400, detail="Invalid image URL domain")
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return Response(
+            content=response.content,
+            media_type="image/png",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch image: {str(e)}")
+
 
 @router.post("/create", response_model=CreateTutorialResponse)
 async def create_tutorial_endpoint(

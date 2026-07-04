@@ -43,7 +43,7 @@
             <div class="medha-mindmap-header"><h4>${escapeHtml(mindmap.title || `Mindmap ${index + 1}`)}</h4><p class="medha-mindmap-description">${escapeHtml(mindmap.description || 'No description available')}</p></div>
             <div class="medha-mindmap-actions">
               <button class="medha-btn-primary medha-btn-sm mindmap-view-btn" data-index="${index}"><span class="icon">👁️</span> View</button>
-              <button class="medha-btn-secondary medha-btn-sm mindmap-download-btn" data-image="${mindmap.image_b64}" data-index="${index}" data-title="${escapeHtml(mindmap.title || `Mindmap ${index + 1}`)}"><span class="icon">⬇️</span> Download</button>
+              <button class="medha-btn-secondary medha-btn-sm mindmap-download-btn" data-image="${mindmap.image_url}" data-index="${index}" data-title="${escapeHtml(mindmap.title || `Mindmap ${index + 1}`)}"><span class="icon">⬇️</span> Download</button>
             </div>
           </div>
         `).join('');
@@ -64,18 +64,25 @@
           <div><h2>🧠 ${escapeHtml(title)}</h2>${description ? `<p class="medha-mindmap-modal-description">${escapeHtml(description)}</p>` : ''}</div>
           <button class="medha-modal-close" id="mindmap-close">×</button>
         </div>
-        <div class="medha-mindmap-modal-body"><img src="${mindmap.image_b64}" alt="${escapeHtml(title)}" /></div>
+        <div class="medha-mindmap-modal-body"><img src="${mindmap.image_url}" alt="${escapeHtml(title)}" /></div>
         <div class="medha-mindmap-modal-footer"><button class="medha-btn-modern medha-btn-primary" id="mindmap-download"><span class="icon">⬇️</span> Download</button></div>
       </div>`;
     document.body.appendChild(modal);
     document.getElementById('mindmap-close').addEventListener('click', () => { modal.remove(); });
-    document.getElementById('mindmap-download').addEventListener('click', () => { const filename = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.png`; downloadMindmap(mindmap.image_b64, filename); });
+    document.getElementById('mindmap-download').addEventListener('click', () => { const filename = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.png`; downloadMindmap(mindmap.image_url, filename); });
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
   }
 
-  function downloadMindmap(base64Image, filename) {
-    try { const link = document.createElement('a'); link.href = base64Image; link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); showNotification && showNotification(' Mindmap downloaded!', 'success'); }
-    catch (error) { showNotification && showNotification('❌ Download failed: ' + error.message, 'error'); }
+  async function downloadMindmap(imageUrl, filename) {
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'downloadImage',
+        data: { url: imageUrl, filename: filename }
+      });
+      showNotification && showNotification(' Mindmap downloaded!', 'success'); 
+    } catch (error) { 
+      showNotification && showNotification('❌ Download failed', 'error'); 
+    }
   }
 
   ns.features.generateMindmap = generateMindmap;

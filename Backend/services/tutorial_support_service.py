@@ -114,7 +114,29 @@ async def add_note(tutorial_id: str, email: str, note: Optional[str] = None, ima
     
     # Add image if provided
     if image:
-        new_note["image"] = image
+        import base64
+        from services.blob.gcs_client import GCSClient
+        
+        if image.startswith("data:image/"):
+            header, base64_data = image.split(",", 1)
+            content_type = header.split(":")[1].split(";")[0]
+        else:
+            base64_data = image
+            content_type = "image/png"
+            
+        try:
+            image_bytes = base64.b64decode(base64_data)
+            file_key = f"notes/{uuid.uuid4().hex}.png"
+            gcs = GCSClient()
+            if gcs.is_available():
+                blob = gcs.get_bucket().blob(file_key)
+                blob.upload_from_string(image_bytes, content_type=content_type)
+                public_url = f"https://storage.googleapis.com/{gcs.get_bucket_name()}/{file_key}"
+                new_note["image"] = public_url
+            else:
+                raise ValueError("GCS is unavailable")
+        except Exception as e:
+            raise ValueError(f"Failed to upload image: {str(e)}")
     
     # Add note to array
     collection.update_one(
@@ -188,7 +210,30 @@ async def update_note(note_id: str, updated_text: Optional[str] = None, updated_
     
     # Update image if provided
     if updated_image is not None:
-        update_fields["notes.$.image"] = updated_image
+        import base64
+        import uuid
+        from services.blob.gcs_client import GCSClient
+        
+        if updated_image.startswith("data:image/"):
+            header, base64_data = updated_image.split(",", 1)
+            content_type = header.split(":")[1].split(";")[0]
+        else:
+            base64_data = updated_image
+            content_type = "image/png"
+            
+        try:
+            image_bytes = base64.b64decode(base64_data)
+            file_key = f"notes/{uuid.uuid4().hex}.png"
+            gcs = GCSClient()
+            if gcs.is_available():
+                blob = gcs.get_bucket().blob(file_key)
+                blob.upload_from_string(image_bytes, content_type=content_type)
+                public_url = f"https://storage.googleapis.com/{gcs.get_bucket_name()}/{file_key}"
+                update_fields["notes.$.image"] = public_url
+            else:
+                raise ValueError("GCS is unavailable")
+        except Exception as e:
+            raise ValueError(f"Failed to upload image: {str(e)}")
     
     # Update the note
     result = collection.update_one(
@@ -363,40 +408,41 @@ async def generate_detailed_notes(tutorial_id: str) -> Dict[str, Any]:
         except Exception as groq_error:
             print(f"[Detailed Notes] Groq also failed: {str(groq_error)[:100]}")
             raise ValueError("Failed to generate detailed notes using both providers")
-    
+            
     return {
-        "tutorial_id": tutorial["tutorial_id"],
+        "tutorial_id": tutorial_id,
         "title": tutorial["title"],
         "detailed_notes": detailed_notes
     }
 
-@cache_response(ttl_seconds=120)  # Cache for 2 minutes
 async def get_all_tutorials(email: str) -> Dict[str, Any]:
-    """Get all tutorial sessions for a user"""
+    """Get all tutorials for a user"""
     collection = get_tutorial_support_collection()
     
-    # Find all tutorials for this user
-    tutorials = list(collection.find({"email": email}))
+    # Count total
+    total = collection.count_documents({"email": email})
     
-    # Build summary list
-    tutorial_summaries = []
-    for tutorial in tutorials:
-        tutorial_summaries.append({
-            "tutorial_id": tutorial["tutorial_id"],
-            "title": tutorial["title"],
-            "tutorial_link": tutorial["tutorial_link"],
-            "group": tutorial.get("group", "General"),  # Default to "General" for old tutorials
-            "notes_count": len(tutorial.get("notes", [])),
-            "created_at": tutorial["created_at"],
-            "updated_at": tutorial["updated_at"]
+    # Find tutorials for user
+    tutorials = collection.find(
+        {"email": email}
+    ).sort("updated_at", -1)
+    
+    results = []
+    for tut in tutorials:
+        results.append({
+            "tutorial_id": tut["tutorial_id"],
+            "title": tut["title"],
+            "tutorial_link": tut["tutorial_link"],
+            "group": tut.get("group", "General"),
+            "notes_count": len(tut.get("notes", [])),
+            "created_at": tut["created_at"],
+            "updated_at": tut["updated_at"]
         })
-    
-    # Sort by most recently updated
-    tutorial_summaries.sort(key=lambda x: x["updated_at"], reverse=True)
-    
+        
     return {
         "email": email,
-        "tutorials": tutorial_summaries
+        "tutorials": results,
+        "total": total
     }
 
 async def tutorial_ai_chat(tutorial_id: str, question: str, current_timestamp: Optional[str] = None) -> Dict[str, Any]:
@@ -1477,11 +1523,32 @@ Focus specifically on the concepts and details related to: {focus_area}
         except (json.JSONDecodeError, IndexError, AttributeError) as e:
             continue  # Skip this mindmap if parsing fails
         
-        # Render mindmap to base64 image
+        # Render mindmap to base64 image and upload to GCS
         try:
             image_b64 = render_mindmap_image(mindmap_structure)
+            
+            from services.blob.gcs_client import GCSClient
+            import base64
+            
+            if image_b64.startswith("data:image/"):
+                header, base64_data = image_b64.split(",", 1)
+            else:
+                base64_data = image_b64
+                
+            image_bytes = base64.b64decode(base64_data)
+            file_key = f"mindmaps/{uuid.uuid4().hex}.png"
+            
+            gcs = GCSClient()
+            if gcs.is_available():
+                blob = gcs.get_bucket().blob(file_key)
+                blob.upload_from_string(image_bytes, content_type="image/png")
+                image_url = f"https://storage.googleapis.com/{gcs.get_bucket_name()}/{file_key}"
+            else:
+                raise ValueError("GCS is unavailable")
+                
         except Exception as e:
-            continue  # Skip if rendering fails
+            print(f"Mindmap upload failed: {e}")
+            continue  # Skip if rendering or uploading fails
         
         # Create mindmap entry
         mindmap_id = f"mindmap_{uuid.uuid4().hex[:12]}"
@@ -1491,7 +1558,7 @@ Focus specifically on the concepts and details related to: {focus_area}
             "mindmap_id": mindmap_id,
             "title": topic_title,
             "description": topic_desc,
-            "image_b64": image_b64,
+            "image_url": image_url,
             "structure": mindmap_structure,  # Save the JSON structure too
             "created_at": current_time
         }
@@ -1519,7 +1586,7 @@ Focus specifically on the concepts and details related to: {focus_area}
                 "mindmap_id": m["mindmap_id"],
                 "title": m["title"],
                 "description": m["description"],
-                "image_b64": m["image_b64"],
+                "image_url": m["image_url"],
                 "created_at": m["created_at"]
             }
             for m in mindmaps
@@ -1552,7 +1619,7 @@ async def get_tutorial_mindmaps(tutorial_id: str) -> Dict[str, Any]:
             "mindmap_id": m["mindmap_id"],
             "title": m["title"],
             "description": m["description"],
-            "image_b64": m["image_b64"],
+            "image_url": m.get("image_url", ""),
             "created_at": m["created_at"]
         }
         for m in mindmaps

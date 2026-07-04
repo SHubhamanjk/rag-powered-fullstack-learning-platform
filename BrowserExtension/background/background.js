@@ -26,6 +26,21 @@ async function handleMessage(request) {
 
   try {
     switch (action) {
+      case 'downloadImage':
+        return new Promise((resolve, reject) => {
+          chrome.downloads.download({
+            url: data.url,
+            filename: data.filename,
+            saveAs: false
+          }, (downloadId) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve({ success: true, downloadId });
+            }
+          });
+        });
+
       // ========================================================================
       // TUTORIAL SUPPORT
       // ========================================================================
@@ -164,24 +179,7 @@ async function transcribeAudioHandler(data) {
     if (!response.ok) throw new Error('Primary STT failed');
     return await response.json();
   } catch (primaryError) {
-    
-    // Try fallback endpoint
-    const fallbackFormData = new FormData();
-    fallbackFormData.append('file', blob, 'recording.webm');
-    
-    const fallbackResponse = await fetch(`${api.baseURL}/memory-vault/transcribe`, {
-      method: 'POST',
-      headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` })
-      },
-      body: fallbackFormData
-    });
-    
-    if (!fallbackResponse.ok) {
-      throw new Error('Both STT endpoints failed');
-    }
-    
-    return await fallbackResponse.json();
+    throw new Error('STT endpoint failed');
   }
 }
 

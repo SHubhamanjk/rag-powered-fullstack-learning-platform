@@ -85,7 +85,7 @@ class AddNoteResponse(BaseModel):
 class NoteSchema(BaseModel):
     note_id: str
     note: Optional[str] = None
-    image: Optional[str] = None  # Base64 encoded image
+    image: Optional[str] = None  # Public URL of the image
     timestamp: str
     datetime: datetime
 
@@ -246,6 +246,7 @@ class TutorialSummary(BaseModel):
 class GetAllTutorialsResponse(BaseModel):
     email: EmailStr
     tutorials: List[TutorialSummary]
+    total: int
     
     model_config = {
         "json_schema_extra": {
@@ -683,7 +684,7 @@ class MindmapSchema(BaseModel):
     mindmap_id: str
     title: str
     description: str
-    image_b64: str  # base64 encoded PNG image
+    image_url: str  # Public GCS URL of the generated mindmap
     created_at: str
 
 class GenerateMindmapsResponse(BaseModel):
@@ -701,7 +702,7 @@ class GenerateMindmapsResponse(BaseModel):
                             "mindmap_id": "mindmap_1",
                             "title": "Introduction to Python",
                             "description": "Covers basic syntax, variables, and data types",
-                            "image_b64": "data:image/png;base64,iVBORw0KGgoAAAANS...",
+                            "image_url": "https://storage.googleapis.com/bucket-name/mindmaps/mindmap_1.png",
                             "created_at": "2024-01-15T10:30:00"
                         }
                     ],
@@ -725,7 +726,7 @@ class GetMindmapsResponse(BaseModel):
                             "mindmap_id": "mindmap_1",
                             "title": "Introduction to Python",
                             "description": "Covers basic syntax, variables, and data types",
-                            "image_b64": "data:image/png;base64,iVBORw0KGgoAAAANS...",
+                            "image_url": "https://storage.googleapis.com/bucket-name/mindmaps/mindmap_1.png",
                             "created_at": "2024-01-15T10:30:00"
                         }
                     ]
