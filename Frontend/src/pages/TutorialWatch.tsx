@@ -2034,6 +2034,16 @@ const TutorialWatch = () => {
                 {quizzes.length} {quizzes.length === 1 ? "quiz" : "quizzes"}
               </Badge>
             )}
+            {mindmaps.length > 0 && (
+              <Badge 
+                variant="secondary" 
+                className="gap-1 cursor-pointer hover:bg-secondary/80 transition-colors"
+                onClick={() => setShowMindmaps(true)}
+              >
+                <Brain className="w-3 h-3" />
+                {mindmaps.length} {mindmaps.length === 1 ? "map" : "maps"}
+              </Badge>
+            )}
           </div>
         </div>
       </div>
